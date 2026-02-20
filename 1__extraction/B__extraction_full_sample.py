@@ -13,6 +13,16 @@ os.environ["CRDS_CONTEXT"] = "jwst_1467.pmap"
 # Set to "NGDEEP" to use those calibrations
 os.environ["NIRISS_CALIB"] = "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
 
+# Symlink the custom configuration files.
+# The format for these is pretty self explanatory, and the current set
+# combines the NGDEEP configuration for the first order, with the grizli defaults
+# for all other orders.
+for orig in (Path(__file__).parent / "conf_data").glob("*"):
+    if not (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).exists():
+        (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).symlink_to(
+            orig, target_is_directory=orig.is_dir()
+        )
+
 from niriss_tools import pipeline
 
 # Change this to reduce a different field
@@ -212,8 +222,9 @@ if __name__ == "__main__":
 
             _ = fitting.run_all_parallel(
                 int(obj_id),
-                zr=[obj_z - 0.05, obj_z + 0.05],
-                dz=[0.001, 0.0001],
+                # zr=[obj_z - 0.05, obj_z + 0.05],
+                zr=[0.5, 5.2],
+                dz=[0.01, 0.0001],
                 verbose=True,
                 get_output_data=True,
                 skip_complete=False,

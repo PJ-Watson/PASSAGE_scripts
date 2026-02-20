@@ -17,6 +17,16 @@ os.environ["CRDS_CONTEXT"] = "jwst_1467.pmap"
 # Set to "NGDEEP" to use those calibrations
 os.environ["NIRISS_CALIB"] = "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
 
+# Symlink the custom configuration files.
+# The format for these is pretty self explanatory, and the current set
+# combines the NGDEEP configuration for the first order, with the grizli defaults
+# for all other orders.
+for orig in (Path(__file__).parent / "conf_data").glob("*"):
+    if not (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).exists():
+        (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).symlink_to(
+            orig, target_is_directory=orig.is_dir()
+        )
+
 # https://github.com/PJ-Watson/niriss-tools
 from niriss_tools import pipeline
 
@@ -252,6 +262,9 @@ if __name__ == "__main__":
     # The number of processes to use
     cpu_count = 4
 
+    # The padding to add around the edges of the FLT files
+    flt_pad = 800
+
     os.chdir(grizli_home_dir / "Prep")
 
     rate_files = [str(s) for s in Path.cwd().glob("*_rate.fits")][:]
@@ -260,7 +273,10 @@ if __name__ == "__main__":
     if len(grism_files) == 0:
 
         grism_prep_wrapper(
-            rate_files=rate_files, grism_prep_kwargs=kwargs["grism_prep_args"]
+            rate_files=rate_files,
+            grism_prep_kwargs=kwargs["grism_prep_args"],
+            cpu_count=cpu_count,
+            flt_pad=flt_pad,
         )
 
     # The usual extraction code follows
@@ -279,7 +295,7 @@ if __name__ == "__main__":
         catalog=f"{field_name}-ir.cat.fits",
         cpu_count=-1,
         sci_extn=1,
-        pad=800,
+        pad=flt_pad,
     )
 
     pline = {
