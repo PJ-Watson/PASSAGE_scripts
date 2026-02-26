@@ -1,0 +1,116 @@
+# This is an example configuration file, which stores the settings used previously.
+
+title = "PASSAGE in COSMOS SED Fitting"
+
+[files]
+# The base dir, from which all other paths will be resolved. If not specified,
+# all other paths must be either absolute paths, or relative to the current
+# working directory.
+out_base_dir = "/media/sharedData/data/2026_01_08__PASSAGE"
+# This directory contains all existing phot/spec cats in field-specific
+# subdirectories
+passage_dir = "PASSAGE_data"
+# This contains the reference COSMOS2020/Web catalogues. If already matched,
+# this may not be necessary
+ref_cats_dir = "ref_cats"
+# All transmission curves for the filters in the photometric catalogues
+filt_dir = "transmission_curves"
+# Where to compile the outputs for upload to Box. A subdirectory will be
+# created here, corresponding to the value of `general.fit_ver`
+upload_dir = "to_upload"
+
+[general]
+# An incremental version for the output. Semantic versioning recommended.
+fit_ver = "v1.2.0"
+# The reference catalogue versions to use
+cat_versions = ["web", "2020"]
+# The fields to attempt to fit
+fields = [
+  "Par028",
+  "Par003",
+  "Par017",
+  "Par023",
+  "Par024",
+  "Par025",
+  "Par026",
+  "Par029",
+  "Par049",
+  "Par051",
+  "Par053",
+  "Par052",
+  "Par005",
+  "Par006",
+  "Par020",
+]
+# Include emission line fluxes in the fit
+fit_emlines = true
+# Is the emission line catalogue from linefinding or grizli?
+emlines_is_grizli = false
+# The lines (grizli naming convention) used in the fit. Only considered if
+# `fit_emlines = true`
+line_names = ["SII", "Ha", "OIII", "Hb", "OII", "NeIII-3867"]
+
+[catalogues]
+# The maximum separation to use when matching catalogues (arcsec)
+max_sep = 0.3
+# COSMOS-Web catalogue name
+web_cat_name = "COSMOSWeb_mastercatalog_v1.1.fits"
+# COSMOS-Web photometry HDU name
+web_phot_hdu = "PHOTOMETRY HOTCOLD AND SE++"
+# COSMOS2020 catalogue name
+2020_cat_name = "COSMOS2020_FARMER_R1_v2.2_p3.fits"
+# COSMOS2020 photometry HDU name
+2020_phot_hdu = "PHASE3CATALOG"
+# PASSAGE redshift catalogue name
+passage_cat_name = "passage_cosmos_redshift_catalog_v2.dat"
+# PASSAGE emission line catalogue name format
+emline_cat_name_template = "{field}lines_catalog_recon.dat"
+
+# `fit_instructions` is the TOML-formatted version of the fit instructions (or
+# model components) passed to `bagpipes`. Any lists or arrays here will be
+# converted back to Python tuples before running bagpipes.
+
+[fit_instructions]
+redshift = [1, 1]
+t_bc = 0.02
+
+[fit_instructions.dust]
+type = "Calzetti"
+Av = [0, 3]
+eta = 2
+
+[fit_instructions.nebular]
+logU = [-3.5, -1.0]
+
+[fit_instructions.contvz]
+massformed = [3, 12]
+metallicity = [0, 3]
+metallicity_prior_mu = 1
+metallicity_prior_sigma = 0.5
+bin_edges_low = [0, 30]
+bin_edges_high = [-500, 0]
+n_bins = 7
+dsfr1 = [-10, 10]
+dsfr1_prior = "student_t"
+dsfr1_prior_scale = 0.5
+dsfr1_prior_df = 2
+dsfr2 = [-10, 10]
+dsfr2_prior = "student_t"
+dsfr2_prior_scale = 0.5
+dsfr2_prior_df = 2
+dsfr3 = [-10, 10]
+dsfr3_prior = "student_t"
+dsfr3_prior_scale = 0.5
+dsfr3_prior_df = 2
+dsfr4 = [-10, 10]
+dsfr4_prior = "student_t"
+dsfr4_prior_scale = 0.5
+dsfr4_prior_df = 2
+dsfr5 = [-10, 10]
+dsfr5_prior = "student_t"
+dsfr5_prior_scale = 0.5
+dsfr5_prior_df = 2
+dsfr6 = [-10, 10]
+dsfr6_prior = "student_t"
+dsfr6_prior_scale = 0.5
+dsfr6_prior_df = 2
