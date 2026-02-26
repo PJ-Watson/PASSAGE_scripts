@@ -34,10 +34,13 @@ plt.rcParams.update(
 
 import warnings
 
-# Of course this is a grizli problem
+# Silence common warnings
 from astropy.io.fits.verify import VerifyWarning
+from astropy.units import UnitsWarning
+from astropy.wcs import FITSFixedWarning
 
-warnings.simplefilter("ignore", category=VerifyWarning)
+for w in [VerifyWarning, FITSFixedWarning, UnitsWarning]:
+    warnings.simplefilter("ignore", category=w)
 
 import argparse
 import tomllib
@@ -214,7 +217,7 @@ if __name__ == "__main__":
                 load_line_fluxes=emlines_load_fn,
                 mujy_plot=True,
             )
-            cat_fit.fit(n_live=400, verbose=True, mpi_serial=False, track_backlog=True)
+            cat_fit.fit(n_live=400, verbose=True, mpi_serial=True, track_backlog=True)
 
             comm.Barrier()
 
@@ -323,3 +326,28 @@ if __name__ == "__main__":
                 full_cat.write(cat_path_2, overwrite=True)
 
                 print(f"Finished for {cat_ver=}.")
+
+            full_dir_archive = (
+                upload_dir / f"full_dir_archive_{fit_ver}_cosmos{cat_ver}.zip"
+            )
+
+            with zipfile.ZipFile(full_dir_archive, "a") as myzip:
+                zip_path = zipfile.Path(myzip)
+                for f in passage_dir.glob(f"**/*{fit_ver}_cosmos{cat_ver}*"):
+                    if f.is_dir():
+                        for subfiles in f.glob("*"):
+                            if not (
+                                zip_path / subfiles.relative_to(out_base_dir)
+                            ).exists():
+                                myzip.write(
+                                    subfiles, subfiles.relative_to(out_base_dir)
+                                )
+                    if not (zip_path / f.relative_to(out_base_dir)).exists():
+                        myzip.write(f, f.relative_to(out_base_dir))
+                for f in filt_dir.glob("*"):
+                    if not (zip_path / f.relative_to(out_base_dir)).exists():
+                        myzip.write(f, f.relative_to(out_base_dir))
+            # for file_path in passage_dir.glob(f"**/*{fit_ver}_cosmos{cat_ver}*"):
+            #     print (file_path)
+            #     print (file_path.is_dir())
+            # exit()

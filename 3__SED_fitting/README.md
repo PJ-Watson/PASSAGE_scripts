@@ -11,7 +11,7 @@ Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogu
 ## Catalogues
  - The main output will be the SED fitting catalogues, available in Box under `{fit_version}/SED_fits_{fit_version}_cosmos{cat_version}.fits`.
  - Including the `{fit_version}` (e.g. `v1.0.2`, `v1.1.0`), and `{cat_version}` (e.g. `web`, `2020`) in the file name should minimise conflicts if you're comparing across multiple versions of each, but I would recommend only using a single catalogue for any given science case.
- - Alongside the catalogues, there will be a zipped folder named `{fit_version}/SED_fits_summary_plots_{fit_version}_cosmos{cat_version}.zip`.
+ - Alongside the catalogues, there will be a zipped folder named `{fit_version}/full_dir_archive_{fit_version}_cosmos{cat_version}.zip`.
  - These folders contain summary plots for each fitted galaxy in the corresponding catalogue, showing:
    - The observed photometry (blue points), model photometry (orange points), and model spectrum (shaded orange spectrum), in muJy. This is plotted as a function of observed wavelength (bottom) and rest-frame wavelength (top).
    - The SFH, showing the logSFR against the age of the galaxy (on a log scale). The corresponding redshift is plotted on the top x-axis.

@@ -884,7 +884,8 @@ if __name__ == "__main__":
     from project_2025c import plotting_scripts
 
     ref_cat = Table.read(
-        "/media/sharedData/data/2026_01_08__PASSAGE/ref_cats/passagepipe_v0.5_SED_fits_cosmosweb_v1.0.0-alpha.fits"
+        # "/media/sharedData/data/2026_01_08__PASSAGE/ref_cats/passagepipe_v0.5_SED_fits_cosmosweb_v1.0.0-alpha.fits"
+        "/media/sharedData/data/2026_01_08__PASSAGE/PASSAGE_data/cats/SED_fits_v1.0.2_cosmos2020.fits"
     )
     new_cat = Table.read(
         "/media/sharedData/data/2026_01_08__PASSAGE/PASSAGE_data/cats/SED_fits_v1.0.2_cosmosweb.fits"
@@ -892,16 +893,19 @@ if __name__ == "__main__":
 
     # new_cat = new_cat[np.logical_not(new_cat["id_photcat"].mask)]
 
-    tab_name_1 = "v1.0.0"
-    tab_name_2 = "v1.0.2"
+    # tab_name_1 = "v1.0.0"
+    # tab_name_2 = "v1.0.2"
+    tab_name_1 = "web"
+    tab_name_2 = "2020"
 
     matched = join(
         ref_cat,
         new_cat,
         # keys_left="passage_id",
         # keys_right="id",
-        keys_left=["Par", "passage_id"],
-        keys_right=["field", "id_photcat"],
+        # keys_left=["Par", "passage_id"],
+        # keys_right=["field", "id_photcat"],
+        keys = ["id_huberty"],
         table_names=[tab_name_1, tab_name_2],
     )
 
