@@ -1,5 +1,81 @@
 """A collection of utility functions and constants to aid in SED fitting."""
 
+cigale_name_mapping = {
+    # NIRISS
+    "jwst.niriss.F115WN": "jwst_niriss_f115w",
+    "jwst.niriss.F150WN": "jwst_niriss_f150w",
+    "jwst.niriss.F200WN": "jwst_niriss_f200w",
+    # COSMOS-Web
+    "jwst.nircam.F115W": "jwst_nircam_f115w",
+    "jwst.nircam.F150W": "jwst_nircam_f150w",
+    "jwst.nircam.F277W": "jwst_nircam_f277w",
+    "jwst.nircam.F444W": "jwst_nircam_f444w",
+    "hst.acs.wfc.F814W": "HST_ACS_WFC.F814W",
+    "jwst.miri.F770W": "jwst_miri_f770w",
+    # https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/megapipe/docs/filt.html
+    # The same as on SVO
+    "cfht.megacam.u": "U.MP9302",
+    # https://hsc.mtk.nao.ac.jp/pipedoc/pipedoc_8_e/hsc_info_e/index.html
+    "subaru.hsc.g": "hsc_g_v2018",
+    "subaru.hsc.r": "hsc_r2_v2018",
+    "subaru.hsc.i": "hsc_i2_v2018",
+    "subaru.hsc.z": "hsc_z_v2018",
+    "subaru.hsc.y": "hsc_y_v2018",
+    "subaru.hsc.NB0816": "hsc_nb816",
+    "subaru.hsc.NB0921": "hsc_nb921",
+    "subaru.hsc.NB1010": "hsc_nb1010",
+    # SVO
+    "paranal.vircam.Y": "Paranal_VISTA.Y",
+    "paranal.vircam.J": "Paranal_VISTA.J",
+    "paranal.vircam.H": "Paranal_VISTA.H",
+    "paranal.vircam.Ks": "Paranal_VISTA.Ks",
+    "paranal.vircam.NB118": "Paranal_VISTA.NB118",
+    # https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/scla/docs/filt.html
+    "subaru.suprime.IB484": "SupIA484",
+    "subaru.suprime.IB527": "SupIA527",
+    "subaru.suprime.IB624": "SupIA624",
+    "subaru.suprime.IB679": "SupIA679",
+    "subaru.suprime.IB738": "SupIA738",
+    "subaru.suprime.IB767": "SupIA767",
+    "subaru.suprime.IB427": "SupIA427",
+    "subaru.suprime.IB505": "SupIA505",
+    "subaru.suprime.IB574": "SupIA574",
+    "subaru.suprime.IB709": "SupIA709",
+    "subaru.suprime.IB827": "SupIA827",
+    "subaru.suprime.NB711": "NB711Suprime",
+    "subaru.suprime.NB816": "NB816Suprime",
+    # SVO
+    "spitzer.irac.I1": "Spitzer_IRAC.I1",
+    "spitzer.irac.I2": "Spitzer_IRAC.I2",
+    "spitzer.irac.I3": "Spitzer_IRAC.I3",
+    "spitzer.irac.I4": "Spitzer_IRAC.I4",
+}
+
+
+def check_cigale_filter(filter_name: str) -> bool:
+    """
+    Check if a filter name exists in the CIGALE database.
+
+    Parameters
+    ----------
+    filter_name : str
+        The name of the filter to check.
+
+    Returns
+    -------
+    bool
+        True if filters matching the name are in the database.
+    """
+    from pcigale.data import SimpleDatabase as Database
+
+    with Database("filters") as base:
+        filters = {name: base.get(name=name) for name in base.parameters["name"]}
+
+    filters = {k: v for k, v in filters.items() if filter_name in k}
+
+    return len(filters) > 0
+
+
 cosmosweb_name_mapping = {
     # NIRISS
     "f115wn": "jwst_niriss_f115w",
@@ -109,6 +185,8 @@ cosmos2020_name_mapping = {
 
 inv_cosmosweb = {v: k for k, v in cosmosweb_name_mapping.items()}
 inv_cosmos2020 = {v: k for k, v in cosmos2020_name_mapping.items()}
+
+pipes_to_cigale = {v: k for k, v in cigale_name_mapping.items()}
 
 from pathlib import Path
 
@@ -422,6 +500,8 @@ def prepare_catalogues(
         uniq, uniq_ct = np.unique(phot_cat[cosmos_id_name], return_counts=True)
         phot_cat["flux_scale"] = 1.0
         for dup_id in uniq[uniq_ct > 1]:
+            if dup_id == -99:
+                continue
             print(f"Duplicate COSMOS ID : {dup_id}")
             total_flux = np.nansum(
                 phot_cat[phot_cat[cosmos_id_name] == dup_id]["flux_auto"]
@@ -727,6 +807,40 @@ def reformat_lines_list(
         return out_dir / out_name
 
 
+def mask_catalogue(
+    config: dict,
+    input_cat: Table,
+    cosmos_id_name: str = "cosmoswebid",
+) -> Path:
+    """
+    Mask a catalogue based on matches to COSMOS.
+
+    Parameters
+    ----------
+    config : dict
+        The dictionary storing the configuration used for this iteration
+        of SED fitting.
+    input_cat : Table
+        The original matched catalogue.
+    cosmos_id_name : str, optional
+        The column ID matching the ID in the reference catalogue, by
+        default `"cosmoswebid"`.
+
+    Returns
+    -------
+    Table
+        The new table containing only the desired matches.
+    """
+
+    match config["catalogues"].get("cat_cosmos_match", 0):
+        case 1:
+            return input_cat[input_cat[cosmos_id_name] > 0]
+        case 0:
+            return input_cat
+        case -1:
+            return input_cat[input_cat[cosmos_id_name] <= 0]
+
+
 def reformat_grizli_speccat(
     orig_path: Path,
     keep_ids: ArrayLike,
@@ -905,7 +1019,7 @@ if __name__ == "__main__":
         # keys_right="id",
         # keys_left=["Par", "passage_id"],
         # keys_right=["field", "id_photcat"],
-        keys = ["id_huberty"],
+        keys=["id_huberty"],
         table_names=[tab_name_1, tab_name_2],
     )
 
