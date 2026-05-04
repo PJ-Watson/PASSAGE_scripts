@@ -11,8 +11,8 @@ Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogu
 ## Catalogues
  - The main output will be the SED fitting catalogues, available in Box under `{fit_version}/SED_fits_{fit_version}_cosmos{cat_version}.fits`.
  - Including the `{fit_version}` (e.g. `v1.0.2`, `v1.1.0`), and `{cat_version}` (e.g. `web`, `2020`) in the file name should minimise conflicts if you're comparing across multiple versions of each, but I would recommend only using a single catalogue for any given science case.
- - Alongside the catalogues, there will be a zipped folder named `{fit_version}/full_dir_archive_{fit_version}_cosmos{cat_version}.zip`.
- - These folders contain summary plots for each fitted galaxy in the corresponding catalogue, showing:
+ - Alongside the catalogues, there will be zipped folders named `{fit_version}/full_dir_archive_{fit_version}_cosmos{cat_version}.zip` (see [below](#complete-directory) for more details) and `{fit_version}/SED_fits_summary_plots_{fit_version}_cosmos{cat_version}.zip`.
+ - The latter folder contains summary plots for each fitted galaxy in the corresponding catalogue, showing:
    - The observed photometry (blue points), model photometry (orange points), and model spectrum (shaded orange spectrum), in muJy. This is plotted as a function of observed wavelength (bottom) and rest-frame wavelength (top).
    - The SFH, showing the logSFR against the age of the galaxy (on a log scale). The corresponding redshift is plotted on the top x-axis.
    - Histograms of the posterior distribution for the fitted stellar mass, and the derived SFR (integrated over 100 Myr).
@@ -34,7 +34,8 @@ Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogu
  - For any questions or bugs relating to the code, please get in touch!
 
 ## Complete Directory
- - TBD. I will attempt to zip or otherwise upload all bagpipes input and output files, to make it easier for anyone wanting to re-run the stellar mass fits (e.g. changing the redshift, or parameterisation).
+ - This contains all bagpipes input and output files, to make it easier for anyone wanting to re-run the stellar mass fits (e.g. changing the redshift, or parameterisation).
+ - The directory structure should be fairly straightforward (see the configuration file for the corresponding run), although it is quite likely that at least the root directory name will need to be changed before running any of the code.
 
 # Roadmap
 
@@ -44,6 +45,11 @@ Copied from my slides in Bern:
  - v1.2.0 will include emission line fluxes from careful continuum fitting (by KN and FH).
 
 # Versions
+
+## v1.0.3:
+ - Identical to v1.0.2, but run only for galaxies without a match in either COSMOS catalogue. The only fluxes used are those from NIRISS (1-3 bands).
+ - SED fit parameters in this release should be treated with caution, but can otherwise fill in the gaps in the previous release.
+ - Some fields contain only 1 NIRISS filter (`n_bands==1`), and should not be used unless absolutely necessary.
 
 ## v1.0.2:
  - The "basic" version of the catalogue. For many use cases, this is adequate, and is likely the most comparable to other stellar mass catalogues in the literature.
@@ -65,6 +71,10 @@ Copied from my slides in Bern:
 
 
 # Changelog
+
+## 2026-05-04:
+ - Uploaded v1.0.3 catalogues, containing objects without matches in the COSMOS catalogues.
+ - Updated README with more details of the zipped directories.
 
 ## 2026-02-26:
  - Uploaded v1.0.2 COSMOS2020 catalogue.
