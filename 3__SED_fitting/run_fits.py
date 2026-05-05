@@ -106,7 +106,7 @@ if __name__ == "__main__":
                         cosmos_id_name=cosmos_id_name,
                     )
                 except:
-                    print (f"Failed to prepare catalogues for {field}")
+                    print(f"Failed to prepare catalogues for {field}")
                     continue
 
             pipes_dir = passage_dir / "pipes"
@@ -344,7 +344,3 @@ if __name__ == "__main__":
                 for f in filt_dir.glob("*"):
                     if not (zip_path / f.relative_to(out_base_dir)).exists():
                         myzip.write(f, f.relative_to(out_base_dir))
-            # for file_path in passage_dir.glob(f"**/*{fit_ver}_cosmos{cat_ver}*"):
-            #     print (file_path)
-            #     print (file_path.is_dir())
-            # exit()

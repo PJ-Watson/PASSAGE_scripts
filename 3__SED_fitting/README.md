@@ -4,9 +4,10 @@ A description of the SED fits for the PASSAGE in COSMOS fields.
 
 Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogues, as the NIRISS fields covered by these catalogues do not fully overlap.
 
+> [!NOTE]
+> The current "best available" version of the SED catalogue is `SED_fits_v1.0.3_best.fits`.
 
 # Data Products
-
 
 ## Catalogues
  - The main output will be the SED fitting catalogues, available in Box under `{fit_version}/SED_fits_{fit_version}_cosmos{cat_version}.fits`.
@@ -16,6 +17,15 @@ Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogu
    - The observed photometry (blue points), model photometry (orange points), and model spectrum (shaded orange spectrum), in muJy. This is plotted as a function of observed wavelength (bottom) and rest-frame wavelength (top).
    - The SFH, showing the logSFR against the age of the galaxy (on a log scale). The corresponding redshift is plotted on the top x-axis.
    - Histograms of the posterior distribution for the fitted stellar mass, and the derived SFR (integrated over 100 Myr).
+ - The current `"_best"` catalogue will compile the most up-to-date SED fits for each galaxy, in the following order of preference:
+   - NIRISS + COSMOS-Web photometry, with line fluxes
+   - NIRISS + COSMOS-Web photometry
+   - NIRISS + COSMOS2020 photometry, with line fluxes
+   - NIRISS + COSMOS2020 photometry
+   - NIRISS photometry with line fluxes
+   - NIRISS photometry only
+- For simplicity, the `"_best"` catalogue will not include fits to galaxies where the only available data is a single NIRISS photometric flux. These have almost no scientific use, but are available in the individual fit catalogues for those who really want them (_caveat utilitor_).
+- The provenance of the SED fit results in the `"_best"` catalogue is provided in the `source_cat` column. 
 
 ## Code
  - The code used for these SED fits is available at https://github.com/PJ-Watson/PASSAGE_scripts.
@@ -71,6 +81,9 @@ Copied from my slides in Bern:
 
 
 # Changelog
+
+## 2026-05-05:
+ - Uploaded "best" catalogue version, updated plotting script.
 
 ## 2026-05-04:
  - Uploaded v1.0.3 catalogues, containing objects without matches in the COSMOS catalogues.

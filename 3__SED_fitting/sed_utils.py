@@ -188,8 +188,9 @@ inv_cosmos2020 = {v: k for k, v in cosmos2020_name_mapping.items()}
 
 pipes_to_cigale = {v: k for k, v in cigale_name_mapping.items()}
 
-from pathlib import Path
 import zipfile
+from pathlib import Path
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -227,9 +228,6 @@ def apply_dust_correction(
 
     from astropy.coordinates import SkyCoord
     from bagpipes.filters import filter_set
-
-    # from dustmaps.edenhofer2023 import Edenhofer2023Query
-    # dust_map = Edenhofer2023Query(integrated=True)
     from dustmaps.sfd import SFDQuery
 
     dust_map = SFDQuery()
@@ -248,11 +246,6 @@ def apply_dust_correction(
     filts = filter_set(filter_list)
 
     for f_name, f_lam in zip(filter_list, filts.eff_wavs):
-        print(
-            Path(f_name).stem,
-            f_lam / 1e4,
-            ext.extinguish(f_lam * u.Angstrom, Ebv=ebv[0]),
-        )
         phot_cat[f"{Path(f_name).stem}_flux"] /= ext.extinguish(
             f_lam * u.Angstrom, Ebv=ebv
         )
@@ -575,10 +568,6 @@ def prepare_catalogues(
                     **reformat_kwargs,
                 )
 
-            # print ()
-
-    # exit()
-
 
 LINEFINDING_TO_GRIZLI_NAMES_MAP = {
     "s2_6716_6731": "SII",
@@ -771,7 +760,7 @@ def reformat_lines_list(
         return out_dir / out_name
     else:
         if ".zip/" in str(orig_path):
-            print ("Reading from .zip")
+            print("Reading from .zip")
             path_parts = str(orig_path).split(".zip/")
             with zipfile.ZipFile(f"{path_parts[0]}.zip", "r") as myzip:
                 with myzip.open(path_parts[-1]) as f:
@@ -917,13 +906,6 @@ def reformat_grizli_speccat(
             for s in ["flux", "err"]:
                 reformat_tab[f"{s}_{g}"] = orig_tab[f"{s}_{g}"]
                 reformat_tab[f"{s}_{g}"][not_in_filter] = np.nan
-            # reformat_tab[f"err_{g}"] = orig_tab[f"err_{g}"]
-
-        # for lf, g in line_names_map.items():
-        #     reformat_tab[f"flux_{g}"] = orig_tab[f"{lf}_flux"]
-        #     reformat_tab[f"err_{g}"] = orig_tab[f"{lf}_error"]
-
-        # exit()
 
         reformat_tab.write(out_dir / out_name, overwrite=True)
 
