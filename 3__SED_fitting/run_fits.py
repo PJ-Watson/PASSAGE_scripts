@@ -78,12 +78,6 @@ if __name__ == "__main__":
 
     # Since TOML cannot include tuples, but bagpipes expects priors to be
     # tuple type, this is a roundabout way of finding a solution.
-    # Obviously, check the config file before blindly calling `eval()` on
-    # something you didn't write yourself.
-    # pipes_params = eval(
-    #     str(config["fit_instructions"]).replace("[", "(").replace("]", ")")
-    # )
-
     pipes_params = sed_utils.correct_pipes_params(config["fit_instructions"])
 
     for cat_ver in cat_versions:
@@ -100,16 +94,20 @@ if __name__ == "__main__":
         for field in fields:
 
             if rank == 0:
-                sed_utils.prepare_catalogues(
-                    config,
-                    passage_dir,
-                    ref_cats_dir,
-                    filt_dir,
-                    fit_ver=fit_ver,
-                    field=field,
-                    cat_ver=cat_ver,
-                    cosmos_id_name=cosmos_id_name,
-                )
+                try:
+                    sed_utils.prepare_catalogues(
+                        config,
+                        passage_dir,
+                        ref_cats_dir,
+                        filt_dir,
+                        fit_ver=fit_ver,
+                        field=field,
+                        cat_ver=cat_ver,
+                        cosmos_id_name=cosmos_id_name,
+                    )
+                except:
+                    print (f"Failed to prepare catalogues for {field}")
+                    continue
 
             pipes_dir = passage_dir / "pipes"
             pipes_dir.mkdir(exist_ok=True, parents=True)

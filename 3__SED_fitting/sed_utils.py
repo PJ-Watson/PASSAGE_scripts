@@ -189,7 +189,7 @@ inv_cosmos2020 = {v: k for k, v in cosmos2020_name_mapping.items()}
 pipes_to_cigale = {v: k for k, v in cigale_name_mapping.items()}
 
 from pathlib import Path
-
+import zipfile
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -770,13 +770,24 @@ def reformat_lines_list(
     if (out_dir / out_name).is_file() and not overwrite:
         return out_dir / out_name
     else:
-
-        orig_tab = Table.read(
-            orig_path,
-            format="ascii.csv",
-            delimiter="\\s",
-            comment="\\s*#",
-        )
+        if ".zip/" in str(orig_path):
+            print ("Reading from .zip")
+            path_parts = str(orig_path).split(".zip/")
+            with zipfile.ZipFile(f"{path_parts[0]}.zip", "r") as myzip:
+                with myzip.open(path_parts[-1]) as f:
+                    orig_tab = Table.read(
+                        f,
+                        format="ascii.csv",
+                        delimiter="\\s",
+                        comment="\\s*#",
+                    )
+        else:
+            orig_tab = Table.read(
+                orig_path,
+                format="ascii.csv",
+                delimiter="\\s",
+                comment="\\s*#",
+            )
         orig_tab.write(out_dir / f"{orig_path.stem}.fits", overwrite=True)
 
         # Strip out any commented lines before writing reformatted table
@@ -982,100 +993,3 @@ def correct_pipes_params(
         if isinstance(v, list) and np.logical_not(np.isin(k, list_keys)):
             current_dict[k] = tuple(v)
     return current_dict
-
-
-if __name__ == "__main__":
-
-    # reformat_lines_list(
-    #     Path(
-    #         "/media/sharedData/data/2026_02_14_passage-par028/v0.5_reduction/Par028_output_recon/Par028lines_catalog_recon.dat"
-    #     )
-    # )
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from astropy.stats import sigma_clipped_stats
-    from project_2025c import plotting_scripts
-
-    ref_cat = Table.read(
-        # "/media/sharedData/data/2026_01_08__PASSAGE/ref_cats/passagepipe_v0.5_SED_fits_cosmosweb_v1.0.0-alpha.fits"
-        "/media/sharedData/data/2026_01_08__PASSAGE/PASSAGE_data/cats/SED_fits_v1.0.2_cosmos2020.fits"
-    )
-    new_cat = Table.read(
-        "/media/sharedData/data/2026_01_08__PASSAGE/PASSAGE_data/cats/SED_fits_v1.0.2_cosmosweb.fits"
-    )
-
-    # new_cat = new_cat[np.logical_not(new_cat["id_photcat"].mask)]
-
-    # tab_name_1 = "v1.0.0"
-    # tab_name_2 = "v1.0.2"
-    tab_name_1 = "web"
-    tab_name_2 = "2020"
-
-    matched = join(
-        ref_cat,
-        new_cat,
-        # keys_left="passage_id",
-        # keys_right="id",
-        # keys_left=["Par", "passage_id"],
-        # keys_right=["field", "id_photcat"],
-        keys=["id_huberty"],
-        table_names=[tab_name_1, tab_name_2],
-    )
-
-    print(matched.colnames)
-
-    q = "stellar_mass"
-    # matched = matched[matched[f"{q}_50_2020"] > 0]
-
-    fig, axs = plt.subplots(
-        1,
-        1,
-        constrained_layout=True,
-        figsize=(plotting_scripts.aanda_columnwidth, 3),
-    )
-
-    ax = axs
-    ax.errorbar(
-        matched[f"{q}_50_{tab_name_1}"],
-        matched[f"{q}_50_{tab_name_2}"],
-        xerr=[
-            matched[f"{q}_50_{tab_name_1}"] - matched[f"{q}_16_{tab_name_1}"],
-            matched[f"{q}_84_{tab_name_1}"] - matched[f"{q}_50_{tab_name_1}"],
-        ],
-        yerr=[
-            matched[f"{q}_50_{tab_name_2}"] - matched[f"{q}_16_{tab_name_2}"],
-            matched[f"{q}_84_{tab_name_2}"] - matched[f"{q}_50_{tab_name_2}"],
-        ],
-        fmt=".",
-        ecolor=(0.0, 0.0, 0.0, 0.5),
-        markerfacecolor="none",
-        zorder=-1,
-    )
-    ax.scatter(
-        matched[f"{q}_50_{tab_name_1}"],
-        matched[f"{q}_50_{tab_name_2}"],
-        alpha=0.7,
-        c="purple",
-        s=10,
-    )
-    lims = np.asarray([ax.get_xlim(), ax.get_ylim()])
-    lims = np.array([np.nanmin(lims), np.nanmax(lims)])
-    print(lims)
-
-    print(
-        sigma_clipped_stats(
-            matched[f"{q}_50_{tab_name_1}"] - matched[f"{q}_50_{tab_name_2}"]
-        )
-    )
-
-    ax.plot(lims, lims, linestyle=":", c="k", alpha=0.7)
-    ax.set_xlim(lims)
-    ax.set_ylim(lims)
-
-    axs.set_xlabel(rf"$\log_{{10}}\left(M_*/M_{{\odot}}\right)$ ({tab_name_1})")
-    axs.set_ylabel(rf"$\log_{{10}}\left(M_*/M_{{\odot}}\right)$ ({tab_name_2})")
-
-    # plt.savefig(plot_dir / "compare_mass_2020_2025.pdf")
-
-    plt.show()

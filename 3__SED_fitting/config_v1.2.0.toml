@@ -64,7 +64,8 @@ web_phot_hdu = "PHOTOMETRY HOTCOLD AND SE++"
 # PASSAGE redshift catalogue name
 passage_cat_name = "passage_cosmos_redshift_catalog_v2.dat"
 # PASSAGE emission line catalogue name format
-emline_cat_name_template = "{field}lines_catalog_recon.dat"
+# emline_cat_name_template = "{field}lines_catalog_master.dat"
+emline_cat_name_template = "{field}_output_kalina.zip/{field}_output_kalina/{field}lines_catalog_master.dat"
 
 # `fit_instructions` is the TOML-formatted version of the fit instructions (or
 # model components) passed to `bagpipes`. Any lists or arrays here will be
@@ -92,25 +93,25 @@ bin_edges_high = [-500, 0]
 n_bins = 7
 dsfr1 = [-10, 10]
 dsfr1_prior = "student_t"
-dsfr1_prior_scale = 0.5
+dsfr1_prior_scale = 1.0
 dsfr1_prior_df = 2
 dsfr2 = [-10, 10]
 dsfr2_prior = "student_t"
-dsfr2_prior_scale = 0.5
+dsfr2_prior_scale = 1.0
 dsfr2_prior_df = 2
 dsfr3 = [-10, 10]
 dsfr3_prior = "student_t"
-dsfr3_prior_scale = 0.5
+dsfr3_prior_scale = 1.0
 dsfr3_prior_df = 2
 dsfr4 = [-10, 10]
 dsfr4_prior = "student_t"
-dsfr4_prior_scale = 0.5
+dsfr4_prior_scale = 1.0
 dsfr4_prior_df = 2
 dsfr5 = [-10, 10]
 dsfr5_prior = "student_t"
-dsfr5_prior_scale = 0.5
+dsfr5_prior_scale = 1.0
 dsfr5_prior_df = 2
 dsfr6 = [-10, 10]
 dsfr6_prior = "student_t"
-dsfr6_prior_scale = 0.5
+dsfr6_prior_scale = 1.0
 dsfr6_prior_df = 2
