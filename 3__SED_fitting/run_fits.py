@@ -105,9 +105,17 @@ if __name__ == "__main__":
                         cat_ver=cat_ver,
                         cosmos_id_name=cosmos_id_name,
                     )
+                    prepared = True
                 except:
-                    print(f"Failed to prepare catalogues for {field}")
-                    continue
+                    print(f"Failed to prepare catalogues for {field}", flush=True)
+                    prepared = False
+            else:
+                prepared = None
+
+            prepared = comm.bcast(prepared, root=0)
+
+            if not prepared:
+                continue
 
             pipes_dir = passage_dir / "pipes"
             pipes_dir.mkdir(exist_ok=True, parents=True)
