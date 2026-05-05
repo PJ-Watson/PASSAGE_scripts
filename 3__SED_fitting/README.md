@@ -25,7 +25,7 @@ Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogu
    - NIRISS photometry with line fluxes
    - NIRISS photometry only
 - For simplicity, the `"_best"` catalogue will not include fits to galaxies where the only available data is a single NIRISS photometric flux. These have almost no scientific use, but are available in the individual fit catalogues for those who really want them (_caveat utilitor_).
-- The provenance of the SED fit results in the `"_best"` catalogue is provided in the `source_cat` column. 
+- The provenance of the SED fit results in the `"_best"` catalogue is provided in the `source_cat` column.
 
 ## Code
  - The code used for these SED fits is available at https://github.com/PJ-Watson/PASSAGE_scripts.
