@@ -53,6 +53,11 @@ parser.add_argument(
     action=argparse.BooleanOptionalAction,
     help="Weight the best fit line by the uncertainties.",
 )
+parser.add_argument(
+    "--log",
+    action=argparse.BooleanOptionalAction,
+    help="Take the logarithm of the quantity.",
+)
 
 parser.add_argument(
     "--plot_dir",
@@ -217,8 +222,6 @@ if __name__ == "__main__":
         & (matched[f"n_bands_{tab_name_1}"] >= args.min_bands)
         & (matched[f"n_bands_{tab_name_2}"] >= args.min_bands)
     ]
-    # matched.pprint()
-    # print (np.unique(matched[f"field_{tab_name_1}"]))
 
     x = matched[f"{q}_50_{tab_name_1}"]
     y = matched[f"{q}_50_{tab_name_2}"]
@@ -230,8 +233,12 @@ if __name__ == "__main__":
         y - matched[f"{q}_16_{tab_name_2}"],
         matched[f"{q}_84_{tab_name_2}"] - y,
     ]
+    if args.log:
+        xerr = (1 / np.log(10)) * (xerr / x)
+        yerr = (1 / np.log(10)) * (yerr / x)
+        x = np.log10(x)
+        y = np.log10(y)
 
-    # print(np.nanmedian(x[np.isfinite(x)]))
     params = lmfit.create_params(a=0, b=0, x0=dict(value=np.nanmedian(x), vary=False))
 
     out = lmfit.minimize(

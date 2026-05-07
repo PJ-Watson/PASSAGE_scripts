@@ -780,7 +780,10 @@ def reformat_lines_list(
         orig_tab.write(out_dir / f"{orig_path.stem}.fits", overwrite=True)
 
         # Strip out any commented lines before writing reformatted table
-        del orig_tab.meta["comments"]
+        try:
+            del orig_tab.meta["comments"]
+        except:
+            pass
 
         orig_tab["id_photcat"] = orig_tab["objid"].astype(int)
 
@@ -831,7 +834,6 @@ def mask_catalogue(
     Table
         The new table containing only the desired matches.
     """
-
     match config["catalogues"].get("cat_cosmos_match", 0):
         case 1:
             return input_cat[input_cat[cosmos_id_name] > 0]

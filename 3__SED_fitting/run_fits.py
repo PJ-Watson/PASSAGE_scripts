@@ -171,9 +171,7 @@ if __name__ == "__main__":
                     / field
                     / f"{field}_bagpipes_input_emlines_{fit_ver}_cosmos{cat_ver}.fits"
                 )
-                bagpipes_input_emlines_cat_masked = sed_utils.mask_catalogue(
-                    config, bagpipes_input_emlines_cat, cosmos_id_name
-                )
+                bagpipes_input_emlines_cat = bagpipes_input_emlines_cat
 
                 emlines_load_fn = partial(
                     load_lines_bagpipes,
@@ -185,9 +183,15 @@ if __name__ == "__main__":
                             "line_names", sed_utils.DEFAULT_FIT_LINES
                         )
                     },
-                    line_cat=bagpipes_input_emlines_cat_masked,
+                    line_cat=bagpipes_input_emlines_cat,
                     id_colname="id_photcat",
                 )
+                bagpipes_input_cat_masked = bagpipes_input_cat_masked[
+                    np.isin(
+                        bagpipes_input_cat_masked["id_photcat"],
+                        bagpipes_input_emlines_cat["id_photcat"],
+                    )
+                ]
 
             run_name = f"{field}_fit_{fit_ver}_cosmos{cat_ver}"
 
