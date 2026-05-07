@@ -30,6 +30,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--min_bands",
+    # action="extend",
+    nargs="+",
     type=int,
     default=2,
     help="The minimum number of bands for the fit to be included.",
@@ -40,6 +42,11 @@ parser.add_argument(
     default="SED_fits_v1.0.3_best.fits",
     help="The output catalogue name.",
 )
+parser.add_argument(
+    "--overwrite",
+    action=argparse.BooleanOptionalAction,
+    help="Overwrite an existing catalogue.",
+)
 
 if __name__ == "__main__":
 
@@ -48,7 +55,7 @@ if __name__ == "__main__":
     cat_dir = Path(args.cat_dir)
 
     out_path = cat_dir / args.out_name
-    if not (out_path.is_file()):
+    if (not (out_path.is_file())) or args.overwrite:
 
         linefinding_cat = Table.read(
             cat_dir / args.ref_cat,
@@ -68,10 +75,14 @@ if __name__ == "__main__":
 
         sed_fits_tab = None
 
-        for cat_name in args.pref_order:
+        min_bands = np.atleast_1d(args.min_bands)
+        if len(min_bands) < len(args.pref_order):
+            min_bands = np.repeat(min_bands, len(args.pref_order))
+
+        for i, cat_name in enumerate(args.pref_order):
             # print (cat_name)
             tab = Table.read(cat_dir / f"SED_fits_{cat_name}.fits")
-            tab = tab[tab["n_bands"] >= args.min_bands]
+            tab = tab[tab["n_bands"] >= min_bands[i]]
             tab["source_cat"] = cat_name
             if sed_fits_tab is None:
                 sed_fits_tab = tab
@@ -91,7 +102,7 @@ if __name__ == "__main__":
         sed_fits_tab.remove_columns(["cosmoswebid", "cosmoswebid_1"])
         sed_fits_tab.rename_column("cosmoswebid_2", "cosmoswebid")
 
-        sed_fits_tab.pprint()
+        # sed_fits_tab.pprint()
 
         full_cat = join(
             passage_z_cat,
@@ -101,7 +112,7 @@ if __name__ == "__main__":
         )
 
         full_cat.sort("id_huberty")
-        full_cat.pprint()
+        # full_cat.pprint()
         full_cat.meta["EXTNAME"] = "SED_FITS"
         # full_cat.write(cat_path_1, overwrite=True)
         full_cat.write(out_path, overwrite=True)

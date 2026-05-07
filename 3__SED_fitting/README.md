@@ -5,7 +5,7 @@ A description of the SED fits for the PASSAGE in COSMOS fields.
 Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogues, as the NIRISS fields covered by these catalogues do not fully overlap.
 
 > [!NOTE]
-> The current "best available" version of the SED catalogue is `SED_fits_v1.0.3_best.fits`.
+> The current "best available" version of the SED catalogue is `SED_fits_v1.2.0_best.fits`.
 
 # Data Products
 
@@ -56,6 +56,10 @@ Copied from my slides in Bern:
 
 # Versions
 
+## v1.2.0:
+ - This release does not cover the full sample in Huberty+26.
+ - Galaxies were fitted using all available photometry, and line fluxes measured by Kalina Nedkova and Farhan Hasan with careful continuum fitting (Nedkova et al., in prep).
+
 ## v1.0.3:
  - Identical to v1.0.2, but run only for galaxies without a match in either COSMOS catalogue. The only fluxes used are those from NIRISS (1-3 bands).
  - SED fit parameters in this release should be treated with caution, but can otherwise fill in the gaps in the previous release.
@@ -79,8 +83,29 @@ Copied from my slides in Bern:
  - This version is kept as a historical reference only, and any scientific use cases should be updated to the v1.0.2 release at a minimum.
  - The uncertainties on the NIRISS `auto` fluxes were discovered to be incorrect in the original v0.5 reduction, and so were scaled using the S/N in the 1.5" aperture fluxes as a reference.
 
+> [!WARNING]
+> Versions `<v1.0.0` are for internal testing purposes only, and should never be used for scientific analyses.
+
+## v0.1.3:
+ - Par028 only, fitted using NIRISS F200W, HST F814W (COSMOS-Web), and line fluxes measured by KVN.
+ - Line fluxes were restricted to only include those within the F200W filters.
+
+## v0.1.2:
+ - Par028 only, fitted using NIRISS F115W, F150W, and line fluxes measured by KVN.
+ - Line fluxes were restricted to only include those within the F115W and F150W filters.
+
+## v0.1.1:
+ - Par028 only, fitted using NIRISS F115W, F150W, and line fluxes measured by KVN.
+ - All available line fluxes were used, making this unrepresentative of the real data.
+
+## v0.1.0:
+ - Par028 only, fitted using NIRISS F115W, F150W, F200W, and line fluxes measured by KVN.
 
 # Changelog
+
+## 2026-05-07:
+ - Uploaded v1.2.0 catalogues with emission line fits.
+ - Minor bugs in plotting and catalogue reading fixed.
 
 ## 2026-05-05:
  - Uploaded "best" catalogue version, updated plotting script.
