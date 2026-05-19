@@ -1,21 +1,23 @@
 """An example workflow for reducing NIRISS/WFSS data from GLASS-JWST ERS."""
 
 import os
+import tomllib
 from pathlib import Path
 
 import numpy as np
-
-try:
-    from passagepipe import utils
-except:
-    import utils
-
 from astropy.table import Table
 
+config_path = Path(__file__).parent / "config_lcs.toml"
+
+with open(config_path, "rb") as f:
+    config = tomllib.load(f)
+
 # Latest context
-os.environ["CRDS_CONTEXT"] = "jwst_1467.pmap"
+os.environ["CRDS_CONTEXT"] = f"jwst_{config["calibrations"].get("crds_ver", 1535)}.pmap"
 # Set to "NGDEEP" to use those calibrations
-os.environ["NIRISS_CALIB"] = "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
+os.environ["NIRISS_CALIB"] = config["calibrations"].get(
+    "niriss_calib", "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
+)
 
 # Symlink the custom configuration files.
 # The format for these is pretty self explanatory, and the current set
@@ -28,109 +30,44 @@ for orig in (Path(__file__).parent / "conf_data").glob("*"):
         )
 
 # https://github.com/PJ-Watson/niriss-tools
-from niriss_tools import pipeline
+from niriss_tools.pipeline import (
+    gen_associations,
+    process_using_aws,
+    queryMAST,
+    recursive_merge,
+    stsci_det1,
+)
 
-# Change this to reduce a different field
-root_dir = Path(os.getenv("ROOT_DIR"))
-# root_dir = Path("/media/watsonp/ArchivePJW/backup/data")
-field = "Par028"
-date = "2026_02_14"
+root_dir = Path(config["general"].get("root_dir", Path.cwd()))
+field = config["general"].get("field")
 
-field_name = f"passage-{field.lower()}"
+field_name = f"{config["general"].get("field_prefix")}-{field}".lower()
 
-try:
-    passage_tab = Table.read(root_dir / "PASSAGE_obs_details.csv", format="ascii.csv")
-except:
-    import pandas as pd
+field_obs_IDs = config["general"].get("field_obs_ids")
+proposal_IDs = config["general"].get("proposal_ids")
 
-    df = pd.read_csv(root_dir / "JWST PASSAGE Cycle 1 - Cy1 Executed.csv")
-    df = df[["Par#", "Obs Date", "PID", "Obs ID", "Filter", "Mode"]]
-    df = df.ffill()
-    df = df[~df["Obs Date"].str.contains("SKIPPED")]
-    # print (df)
-    passage_tab = Table.from_pandas(df)
-    passage_tab.write(root_dir / "PASSAGE_obs_details.csv", format="ascii.csv")
+reduction_ver = config["general"].get("reduction_ver", "1.0.0")
 
-# exit()
-
-field_obs_IDs = list(passage_tab[passage_tab["Par#"] == field]["Obs ID"])
-proposal_ID = list(passage_tab[passage_tab["Par#"] == field]["PID"])[0]
-
-reduction_dir = Path(root_dir) / f"{date}_{field_name}"
+reduction_dir = root_dir / reduction_ver / field_name
 reduction_dir.mkdir(exist_ok=True, parents=True)
-
-
-def grism_prep_wrapper(
-    field_name: str = field_name,
-    rate_files: list = [],
-    grism_prep_kwargs: dict = {},
-    cpu_count: int = 1,
-    flt_pad: int = 800,
-):
-    """
-    A simple wrapper to ensure consistent processing of the dispersed spectra.
-
-    Parameters
-    ----------
-    field_name : str, optional
-        The name of the field, by default "glass-a2744".
-    rate_files : list, optional
-        A list of `*_rate.fits` files, by default [].
-    grism_prep_kwargs : dict, optional
-        A dictionary of parameters for `auto_script.grism_prep`, by default {}.
-    cpu_count : int, optional
-        The number of cores to use for processing, by default 1.
-    flt_pad : int, optional
-        The padding to add to the edges of the images, by default 800.
-    """
-
-    # For now, turn off refining contamination model with polynomial fits
-    grism_prep_kwargs["refine_niter"] = 0
-    # grism_prep_args["refine_poly_order"] = 7
-
-    # Flat-flambda spectra
-    grism_prep_kwargs["init_coeffs"] = [1.0]
-
-    grism_prep_kwargs["mask_mosaic_edges"] = False
-
-    # Here we use all of the detected objects.
-    # These can be adjusted based on how deep the spectra/visits are
-    grism_prep_kwargs["refine_mag_limits"] = [14.0, 50.0]
-    grism_prep_kwargs["prelim_mag_limit"] = 50.0
-
-    # The grism reference filters for direct images
-    grism_prep_kwargs["gris_ref_filters"] = {
-        "GR150R": ["F115W", "F150W", "F200W"],
-        "GR150C": ["F115W", "F150W", "F200W"],
-    }
-
-    grism_prep_kwargs["use_jwst_crds"] = False
-    grism_prep_kwargs["files"] = rate_files[:]
-
-    grism_prep_kwargs["model_kwargs"] = {
-        "compute_size": True,
-    }
-
-    grp = auto_script.grism_prep(
-        field_root=field_name, pad=flt_pad, cpu_count=cpu_count, **grism_prep_kwargs
-    )
 
 
 if __name__ == "__main__":
 
     # Find the correct observations (utils.py is from passagepipe, I couldn't figure out
     # how to access the raw files on MAST until checking that)
-    if not (root_dir / f"MAST_summary_{proposal_ID}.csv").is_file():
-        all_obs_tab = utils.queryMAST(proposal_ID)
-        all_obs_tab.write(root_dir / f"MAST_summary_{proposal_ID}.csv", overwrite=True)
+    if not (root_dir / f"MAST_summary_{proposal_IDs}.csv").is_file():
+        all_obs_tab = queryMAST(proposal_IDs)
+        all_obs_tab.write(root_dir / f"MAST_summary_{proposal_IDs}.csv", overwrite=True)
     else:
-        all_obs_tab = Table.read(root_dir / f"MAST_summary_{proposal_ID}.csv")
+        all_obs_tab = Table.read(root_dir / f"MAST_summary_{proposal_IDs}.csv")
 
     # Any other checks to add here?
     # field_obs_tab = all_obs_tab
+    # all_obs_tab.pprint()
     field_obs_tab = all_obs_tab[np.isin(all_obs_tab["obs_id_num"], field_obs_IDs)]
 
-    print(field_obs_tab)
+    # print(field_obs_tab)
 
     from mastquery import utils as mastutils
 
@@ -154,7 +91,7 @@ if __name__ == "__main__":
         mastutils.download_from_mast(field_obs_download, path=MAST_dir)
 
     # Create the _rate.fits files
-    pipeline.stsci_det1(MAST_dir, level_1_dir, cpu_count=2)
+    stsci_det1(MAST_dir, level_1_dir, **config["level_1"])
 
     import logging
 
@@ -181,14 +118,18 @@ if __name__ == "__main__":
     # other fields (e.g. GLASS), we have to create an association
     # table ourselves. This contains info on the instrument, filters,
     # footprints, and filenames per group
-    assoc_dict = pipeline.gen_associations(level_1_dir, field_name)
+    assoc_dict = gen_associations(level_1_dir, field_name)
 
     if not (grizli_home_dir / "Prep" / f"{field_name}-ir_drc_sci.fits").is_file():
 
-        # assoc_dict = pipeline.load_assoc()
-
-        pipeline.process_using_aws(
-            grizli_home_dir, level_1_dir, assoc_dict, field_name=field_name
+        process_using_aws(
+            grizli_home_dir,
+            level_1_dir,
+            assoc_dict,
+            field_name=field_name,
+            proposal_id=proposal_IDs,
+            process_visit_kwargs=config.get("grizli_processing", {}),
+            **config.get("mosaics", {}),
         )
 
     # Set up the grizli extraction directory structure
@@ -196,26 +137,45 @@ if __name__ == "__main__":
 
     os.chdir(grizli_home_dir / "Prep")
 
-    # Subtract diffuse background component (e.g. ICL in GLASS)
-    # Not necessary for PASSAGE, can cause problems around bright stars
-    # try:
-    #     hdr = fits.getheader(grizli_home_dir / "Prep" / f"{field_name}-ir_drc_sci.fits")
-    #     assert hdr.get("GRBKGSUB", False), "Running grism background subtraction"
-    # except:
-    #     pipeline.grism_background_subtraction(field_root=field_name, grism_prep_fn=grism_prep_wrapper)
+    if config["subtract_diffuse"].get("run_subtract", False):
+        try:
+            hdr = fits.getheader(
+                grizli_home_dir / "Prep" / f"{field_name}-ir_drc_sci.fits"
+            )
+            assert hdr.get("GRBKGSUB", False), "Running grism background subtraction"
+        except:
+            from niriss_tools.pipeline import grism_background_subtraction
 
+            grism_background_subtraction(
+                field_root=field_name,
+                grism_prep_kwargs=config["grism_prep"],
+                **config["subtract_diffuse"],
+            )
+
+    # Require photometric catalogue
     if not (Path.cwd() / f"{field_name}_phot.fits").is_file():
 
-        if not (Path.cwd() / f"{field_name}-ir.cat.fits").is_file():
+        multiband_catalog_args = auto_script.get_yml_parameters()[
+            "multiband_catalog_args"
+        ]
+
+        catalog_kwargs = recursive_merge(
+            multiband_catalog_args, config["multiband_catalogue"]
+        )
+
+        # Require detection catalogue first
+        if (not (Path.cwd() / f"{field_name}-ir.cat.fits").is_file()) & (
+            config["multiband_catalogue"].get("force_seg_map", None) is not None
+        ):
 
             from astropy.wcs import WCS
             from niriss_tools.isophotal import reproject_image
             from niriss_tools.pipeline import regen_catalogue
 
             # The point of this is to align to the v0.5 reduction seg map
-            # old_seg_name = passage_dir / f"{field_name.capitalize()}_det_drz_seg.fits"
-            old_seg_name = list(reduction_dir.glob("*det_drz_seg.fits"))[0]
-            # (Or whatever name you came up with during the previous reduction)
+            old_seg_name = Path(
+                config["multiband_catalogue"].get("force_seg_map", None)
+            )
 
             aligned_seg_name = grizli_home_dir / "Prep" / f"aligned_{old_seg_name.name}"
 
@@ -232,38 +192,19 @@ if __name__ == "__main__":
 
             use_regen_seg = np.asarray(segment_map).astype(np.int32)
 
+            catalog_kwargs["run_detection"] = False
+
             new_cat = regen_catalogue(
-                use_regen_seg,
-                root=f"{field_name}-ir",
+                use_regen_seg, root=f"{field_name}-ir", **catalog_kwargs
             )
-
-        exist_cat_name = f"{field_name}-ir.cat.fits"
-
-        multiband_catalog_args = auto_script.get_yml_parameters()[
-            "multiband_catalog_args"
-        ]
-        multiband_catalog_args["run_detection"] = False
-        multiband_catalog_args["filters"] = [
-            "f115wn-clear",
-            "f150wn-clear",
-            "f200wn-clear",
-        ]
 
         phot_cat = auto_script.multiband_catalog(
             field_root=field_name,
-            # master_catalog=exist_cat_name,
-            **multiband_catalog_args,
+            **catalog_kwargs,
         )
 
-    # exit()
-
-    kwargs = auto_script.get_yml_parameters()
-
-    # The number of processes to use
-    cpu_count = 4
-
     # The padding to add around the edges of the FLT files
-    flt_pad = 800
+    flt_pad = config["grism_prep"].get("flt_pad", 800)
 
     os.chdir(grizli_home_dir / "Prep")
 
@@ -272,28 +213,26 @@ if __name__ == "__main__":
 
     if len(grism_files) == 0:
 
-        grism_prep_wrapper(
-            rate_files=rate_files,
-            grism_prep_kwargs=kwargs["grism_prep_args"],
-            cpu_count=cpu_count,
-            flt_pad=flt_pad,
-        )
+        grism_prep_kwargs = auto_script.get_yml_parameters()["grism_prep_args"]
+
+        grism_prep_kwargs["files"] = rate_files[:]
+
+        kwargs = recursive_merge(grism_prep_kwargs, config["grism_prep"])
+
+        grp = auto_script.grism_prep(field_root=field_name, **kwargs)
+
+    exit()
 
     # The usual extraction code follows
 
     os.chdir(grizli_home_dir / "Extractions")
-
-    # # Remove bad exposure in GLASS (should have done this earlier tbh)
-    # for f in (grizli_home_dir / "Extractions").glob("jw01324001001_09101_00002_nis*"):
-    #     if f.is_symlink():
-    #         f.unlink()
 
     flt_files = [str(s) for s in Path.cwd().glob("*GrismFLT.fits")][:]
 
     grp = multifit.GroupFLT(
         grism_files=flt_files,
         catalog=f"{field_name}-ir.cat.fits",
-        cpu_count=-1,
+        cpu_count=config["extraction"].get("cpu_count", 4),
         sci_extn=1,
         pad=flt_pad,
     )
@@ -313,20 +252,17 @@ if __name__ == "__main__":
         # Set both of these to True to include photometry in fitting
         include_photometry=False,
         use_phot_obj=False,
+        # bad_pa_threshold=10,
+        # diff2d=2,
     )
 
     # Some examples
     galaxies = {
-        578: 1.438,
-        1779: 1.372,
-        1997: 1.406,
-        2056: 1.865,
-        2275: 3.079,
-        2993: 1.248,
-        243: 1.247,
-        721: 1.265,
-        762: 2.277,
-        1275: 7.925,
+        614: 3.1,
+        1615: 1.94,
+        1516: 2.2,
+        1633: 1.97,
+        1855: 2.8,
     }
 
     for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:
@@ -363,9 +299,10 @@ if __name__ == "__main__":
 
             _ = fitting.run_all_parallel(
                 int(obj_id),
-                zr=[obj_z - 0.05, obj_z + 0.05],
-                # zr=[0, 12],
-                dz=[0.001, 0.0001],
+                # zr=[obj_z - 0.05, obj_z + 0.05],
+                # zr=[obj_z - 0.2, obj_z + 0.2],
+                zr=[0, 5.2],
+                dz=[0.003, 0.0001],
                 verbose=True,
                 get_output_data=True,
                 skip_complete=False,
