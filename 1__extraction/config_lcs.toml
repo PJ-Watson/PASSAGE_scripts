@@ -5,14 +5,14 @@ proposal_ids = 9365
 field_prefix = "lcs"
 field = "par08"
 field_obs_ids = 2
-reduction_ver = "1.1.0"
+reduction_ver = "1.1.1"
 
 [calibrations]
 crds_ver = 1535
 niriss_calib = "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
 
 [level_1]
-cpu_count = 4
+cpu_count = 8
 
 [grizli_processing]
 clean = false
@@ -49,7 +49,7 @@ gris_ref_filters = { GR150R = ["F115W", "F150W", "F200W"], GR150C = ["F115W", "F
 use_jwst_crds = false
 model_kwargs = {compute_size = true}
 pad = 800
-cpu_count = 4
+cpu_count = 8
 
 # This config skips the iterative contamination model and uses a flat f_lambda spectrum instead
 # [grism_prep]
@@ -61,8 +61,33 @@ cpu_count = 4
 # gris_ref_filters = { GR150R = ["F115W", "F150W", "F200W"], GR150C = ["F115W", "F150W", "F200W"] }
 # use_jwst_crds = false
 # model_kwargs = {compute_size = true}
-# flt_pad = 800
+# pad = 800
 # cpu_count = 4
 
 [extraction]
 cpu_count = 4
+split_chunks = false
+chunk_size = 5
+recalculate_size = true
+beam_size = 50 # Not used if `recalculate_size = true`
+min_size = 15
+max_size = 150
+mag_limit = 30
+fit_trace_shift = false
+
+[extraction.beams]
+min_mask = 0.0
+min_sens = 0.0
+fcontam = 0.2
+sys_err = 0.0
+min_overlap = 0.25
+
+[extraction.fit_params]
+pline = { kernel = "square", pixfrac = 1.0, pixscale = 0.06, size = 3 }
+include_photometry = false
+use_phot_obj = false
+save_figures = true
+protect = true
+verbose = true
+zr = [0.0, 10.0]
+dz = [0.001, 0.0001]
