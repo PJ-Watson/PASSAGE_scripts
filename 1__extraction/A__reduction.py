@@ -7,10 +7,29 @@ from pathlib import Path
 import numpy as np
 from astropy.table import Table
 
-config_path = Path(__file__).parent / "config_lcs.toml"
+# config_path = Path(__file__).parent / "config_lcs_test.toml"
+config_path = Path(__file__).parent / "config_passage.toml"
 
 with open(config_path, "rb") as f:
     config = tomllib.load(f)
+
+# detect if run through mpiexec/mpirun
+MPI_avail = False
+try:
+    from mpi4py import MPI
+
+    comm = MPI.COMM_WORLD
+    mpi_rank = comm.Get_rank()
+    mpi_size = comm.Get_size()
+
+    MPI_avail = True
+
+except ImportError:
+    print("Could not import MPI")
+    mpi_rank = 0
+    mpi_size = 1
+
+print(f"MPI: {mpi_rank=}, {mpi_size=}")
 
 # Latest context
 os.environ["CRDS_CONTEXT"] = f"jwst_{config["calibrations"].get("crds_ver", 1535)}.pmap"
@@ -19,15 +38,18 @@ os.environ["NIRISS_CALIB"] = config["calibrations"].get(
     "niriss_calib", "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
 )
 
-# Symlink the custom configuration files.
-# The format for these is pretty self explanatory, and the current set
-# combines the NGDEEP configuration for the first order, with the grizli defaults
-# for all other orders.
-for orig in (Path(__file__).parent / "conf_data").glob("*"):
-    if not (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).exists():
-        (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).symlink_to(
-            orig, target_is_directory=orig.is_dir()
-        )
+if mpi_rank == 0:
+    # Symlink the custom configuration files.
+    # The format for these is pretty self explanatory, and the current set
+    # combines the NGDEEP configuration for the first order, with the grizli defaults
+    # for all other orders.
+    for orig in (Path(__file__).parent / "conf_data").glob("*"):
+        if not (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).exists():
+            (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).symlink_to(
+                orig, target_is_directory=orig.is_dir()
+            )
+if MPI_avail:
+    comm.Barrier()
 
 # https://github.com/PJ-Watson/niriss-tools
 from niriss_tools.pipeline import (
@@ -54,44 +76,54 @@ reduction_dir.mkdir(exist_ok=True, parents=True)
 
 if __name__ == "__main__":
 
-    # Find the correct observations (utils.py is from passagepipe, I couldn't figure out
-    # how to access the raw files on MAST until checking that)
-    if not (root_dir / f"MAST_summary_{proposal_IDs}.csv").is_file():
-        all_obs_tab = queryMAST(proposal_IDs)
-        all_obs_tab.write(root_dir / f"MAST_summary_{proposal_IDs}.csv", overwrite=True)
-    else:
-        all_obs_tab = Table.read(root_dir / f"MAST_summary_{proposal_IDs}.csv")
-
-    # Any other checks to add here?
-    # field_obs_tab = all_obs_tab
-    # all_obs_tab.pprint()
-    field_obs_tab = all_obs_tab[np.isin(all_obs_tab["obs_id_num"], field_obs_IDs)]
-
-    # print(field_obs_tab)
-
-    from mastquery import utils as mastutils
-
-    MAST_dir = reduction_dir / "MAST_downloads"
-    MAST_dir.mkdir(exist_ok=True, parents=True)
-
     level_1_dir = reduction_dir / "Level1"
-    level_1_dir.mkdir(exist_ok=True, parents=True)
 
-    field_obs_download = field_obs_tab[
-        ~np.asarray(
-            [
-                (level_1_dir / f"{s}_rate.fits").is_file()
-                for s in field_obs_tab["obs_id"]
-            ],
-            dtype=bool,
-        )
-    ]
+    if (mpi_rank == 0) and (not config["general"].get("skip_stage_1", True)):
 
-    if len(field_obs_download) > 0:
-        mastutils.download_from_mast(field_obs_download, path=MAST_dir)
+        # Find the correct observations (utils.py is from passagepipe, I couldn't figure out
+        # how to access the raw files on MAST until checking that)
+        if not (root_dir / f"MAST_summary_{proposal_IDs}.csv").is_file():
+            all_obs_tab = queryMAST(proposal_IDs)
+            all_obs_tab.write(
+                root_dir / f"MAST_summary_{proposal_IDs}.csv", overwrite=True
+            )
+        else:
+            all_obs_tab = Table.read(root_dir / f"MAST_summary_{proposal_IDs}.csv")
 
-    # Create the _rate.fits files
-    stsci_det1(MAST_dir, level_1_dir, **config["level_1"])
+        # Any other checks to add here?
+        # field_obs_tab = all_obs_tab
+        # all_obs_tab.pprint()
+        field_obs_tab = all_obs_tab[np.isin(all_obs_tab["obs_id_num"], field_obs_IDs)]
+
+        # print(field_obs_tab)
+
+        from mastquery import utils as mastutils
+
+        MAST_dir = reduction_dir / "MAST_downloads"
+        MAST_dir.mkdir(exist_ok=True, parents=True)
+
+        level_1_dir.mkdir(exist_ok=True, parents=True)
+
+        field_obs_download = field_obs_tab[
+            ~np.asarray(
+                [
+                    (level_1_dir / f"{s}_rate.fits").is_file()
+                    for s in field_obs_tab["obs_id"]
+                ],
+                dtype=bool,
+            )
+        ]
+
+        if len(field_obs_download) > 0:
+            mastutils.download_from_mast(field_obs_download, path=MAST_dir)
+
+        # Create the _rate.fits files
+        stsci_det1(MAST_dir, level_1_dir, **config["level_1"])
+
+    # If this is run using MPI, ensure that the Level 1 detector pipeline
+    # finishes before starting the grizli processing
+    if MPI_avail:
+        comm.Barrier()
 
     import logging
 
@@ -108,11 +140,18 @@ if __name__ == "__main__":
 
     # Setup the grizli directory structure
     grizli_home_dir = reduction_dir / "grizli_home"
+    prep_dir = grizli_home_dir / "Prep"
+    extractions_dir = grizli_home_dir / "Extractions"
 
-    grizli_home_dir.mkdir(exist_ok=True, parents=True)
-    (grizli_home_dir / "Prep").mkdir(exist_ok=True)
-    (grizli_home_dir / "RAW").mkdir(exist_ok=True)
-    (grizli_home_dir / "visits").mkdir(exist_ok=True)
+    if mpi_rank == 0:
+        # Set up the grizli directory structure
+        grizli_home_dir.mkdir(exist_ok=True, parents=True)
+        prep_dir.mkdir(exist_ok=True)
+        (grizli_home_dir / "RAW").mkdir(exist_ok=True)
+        (grizli_home_dir / "visits").mkdir(exist_ok=True)
+        extractions_dir.mkdir(exist_ok=True)
+    if MPI_avail:
+        comm.Barrier()
 
     # As PASSAGE was not ingested into the DJA in the same way as
     # other fields (e.g. GLASS), we have to create an association
@@ -120,40 +159,45 @@ if __name__ == "__main__":
     # footprints, and filenames per group
     assoc_dict = gen_associations(level_1_dir, field_name)
 
-    if not (grizli_home_dir / "Prep" / f"{field_name}-ir_drc_sci.fits").is_file():
+    if not (prep_dir / f"{field_name}-ir_drc_sci.fits").is_file():
 
-        process_using_aws(
-            grizli_home_dir,
-            level_1_dir,
-            assoc_dict,
-            field_name=field_name,
-            proposal_id=proposal_IDs,
-            process_visit_kwargs=config.get("grizli_processing", {}),
-            **config.get("mosaics", {}),
-        )
+        if mpi_rank == 0:
+            process_using_aws(
+                grizli_home_dir,
+                level_1_dir,
+                assoc_dict,
+                field_name=field_name,
+                proposal_id=proposal_IDs,
+                process_visit_kwargs=config.get("grizli_processing", {}),
+                **config.get("mosaics", {}),
+            )
 
-    # Set up the grizli extraction directory structure
-    (grizli_home_dir / "Extractions").mkdir(exist_ok=True)
+    if MPI_avail:
+        comm.Barrier()
 
-    os.chdir(grizli_home_dir / "Prep")
+    os.chdir(prep_dir)
 
     if config["subtract_diffuse"].get("run_subtract", False):
         try:
-            hdr = fits.getheader(
-                grizli_home_dir / "Prep" / f"{field_name}-ir_drc_sci.fits"
-            )
+            hdr = fits.getheader(prep_dir / f"{field_name}-ir_drc_sci.fits")
             assert hdr.get("GRBKGSUB", False), "Running grism background subtraction"
         except:
-            from niriss_tools.pipeline import grism_background_subtraction
+            if mpi_rank == 0:
+                from niriss_tools.pipeline import grism_background_subtraction
 
-            grism_background_subtraction(
-                field_root=field_name,
-                grism_prep_kwargs=config["grism_prep"],
-                **config["subtract_diffuse"],
-            )
+                grism_background_subtraction(
+                    field_root=field_name,
+                    grism_prep_kwargs=config["grism_prep"],
+                    **config["subtract_diffuse"],
+                )
+            else:
+                pass
+
+    if MPI_avail:
+        comm.Barrier()
 
     # Require photometric catalogue
-    if not (Path.cwd() / f"{field_name}_phot.fits").is_file():
+    if (not (Path.cwd() / f"{field_name}_phot.fits").is_file()) and (mpi_rank == 0):
 
         multiband_catalog_args = auto_script.get_yml_parameters()[
             "multiband_catalog_args"
@@ -177,7 +221,7 @@ if __name__ == "__main__":
                 config["multiband_catalogue"].get("force_seg_map", None)
             )
 
-            aligned_seg_name = grizli_home_dir / "Prep" / f"aligned_{old_seg_name.name}"
+            aligned_seg_name = prep_dir / f"aligned_{old_seg_name.name}"
 
             reproject_image(
                 old_seg_name,
@@ -193,6 +237,7 @@ if __name__ == "__main__":
             use_regen_seg = np.asarray(segment_map).astype(np.int32)
 
             catalog_kwargs["run_detection"] = False
+            catalog_kwargs.pop("force_seg_map")
 
             new_cat = regen_catalogue(
                 use_regen_seg, root=f"{field_name}-ir", **catalog_kwargs
@@ -203,29 +248,70 @@ if __name__ == "__main__":
             **catalog_kwargs,
         )
 
-    # The padding to add around the edges of the FLT files
-    flt_pad = config["grism_prep"].get("flt_pad", 800)
+    if MPI_avail:
+        comm.Barrier()
 
-    os.chdir(grizli_home_dir / "Prep")
+    os.chdir(prep_dir)
 
     rate_files = [str(s) for s in Path.cwd().glob("*_rate.fits")][:]
     grism_files = [str(s) for s in Path.cwd().glob("*GrismFLT.fits")][:]
 
-    if len(grism_files) == 0:
+    print(rate_files)
+
+    if (len(grism_files) == 0) and (mpi_rank == 0):
 
         grism_prep_kwargs = auto_script.get_yml_parameters()["grism_prep_args"]
-
-        grism_prep_kwargs["files"] = rate_files[:]
-
         kwargs = recursive_merge(grism_prep_kwargs, config["grism_prep"])
 
-        grp = auto_script.grism_prep(field_root=field_name, **kwargs)
+        if config["general"].get("low_memory", True):
 
-    exit()
+            visits, groups, info = auto_script.load_visits_yaml(
+                Path.cwd() / f"{field_name}_visits.yaml"
+            )
+
+            for pupil in np.unique(info["PUPIL"]):
+                os.chdir(prep_dir)
+                pupil_rate_files = [
+                    str(Path.cwd() / f) for f in info[info["PUPIL"] == pupil]["FILE"]
+                ]
+                kwargs["files"] = pupil_rate_files[:]
+
+                grp = auto_script.grism_prep(field_root=field_name, **kwargs)
+        else:
+
+            grism_prep_kwargs["files"] = rate_files[:]
+
+            grp = auto_script.grism_prep(field_root=field_name, **kwargs)
+
+    # exit()
+
+    # Ensure that all processed files are correctly linked to the
+    # Extractions directory
+    if mpi_rank == 0:
+        files_to_link = []
+        patterns = [
+            "*drc*.fits",
+            "*_seg.fits",
+            "*GrismFLT.fits",
+            "*GrismFLT.pkl",
+            "*wcs.fits",
+            "*cat.fits",
+            "*phot.fits",
+        ]
+        for p in patterns:
+            files_to_link.extend(prep_dir.glob(p))
+        for file in files_to_link:
+            if not (extractions_dir / file.name).is_file():
+                (extractions_dir / file.name).symlink_to(file)
+
+    if MPI_avail:
+        comm.Barrier()
+
+    # exit()
 
     # The usual extraction code follows
 
-    os.chdir(grizli_home_dir / "Extractions")
+    os.chdir(extractions_dir)
 
     flt_files = [str(s) for s in Path.cwd().glob("*GrismFLT.fits")][:]
 
@@ -234,7 +320,7 @@ if __name__ == "__main__":
         catalog=f"{field_name}-ir.cat.fits",
         cpu_count=config["extraction"].get("cpu_count", 4),
         sci_extn=1,
-        pad=flt_pad,
+        pad=config["grism_prep"].get("pad", 800),
     )
 
     pline = {
@@ -258,6 +344,7 @@ if __name__ == "__main__":
 
     # Some examples
     galaxies = {
+        # LCS
         614: 3.1,
         1615: 1.94,
         1516: 2.2,
@@ -266,7 +353,7 @@ if __name__ == "__main__":
     }
 
     for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:
-        (grizli_home_dir / "Extractions" / filetype).mkdir(exist_ok=True, parents=True)
+        (extractions_dir / filetype).mkdir(exist_ok=True, parents=True)
 
     for obj_id, obj_z in galaxies.items():
 
@@ -300,9 +387,9 @@ if __name__ == "__main__":
             _ = fitting.run_all_parallel(
                 int(obj_id),
                 # zr=[obj_z - 0.05, obj_z + 0.05],
-                # zr=[obj_z - 0.2, obj_z + 0.2],
-                zr=[0, 5.2],
-                dz=[0.003, 0.0001],
+                zr=[obj_z - 0.2, obj_z + 0.2],
+                # zr=[0, 5.2],
+                dz=[0.001, 0.0001],
                 verbose=True,
                 get_output_data=True,
                 skip_complete=False,
@@ -311,6 +398,6 @@ if __name__ == "__main__":
 
             for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:
                 [
-                    p.rename(grizli_home_dir / "Extractions" / filetype / p.name)
+                    p.rename(extractions_dir / filetype / p.name)
                     for p in Path.cwd().glob(f"*{obj_id}.*{filetype}*")
                 ]
