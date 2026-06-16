@@ -7,8 +7,10 @@ from pathlib import Path
 import numpy as np
 from astropy.table import Table
 
-# config_path = Path(__file__).parent / "config_lcs_test.toml"
-config_path = Path(__file__).parent / "config_passage.toml"
+config_path = Path(__file__).parent / "config_lcs.toml"
+# config_path = Path(__file__).parent / "config_J0417.toml"
+# config_path = Path(__file__).parent / "config_passage.toml"
+# config_path = Path(__file__).parent / "config_par682_test.toml"
 
 with open(config_path, "rb") as f:
     config = tomllib.load(f)
@@ -28,6 +30,14 @@ except ImportError:
     print("Could not import MPI")
     mpi_rank = 0
     mpi_size = 1
+
+has_astroclour = False
+try:
+    import astrocolour
+
+    has_astroclour = True
+except:
+    pass
 
 print(f"MPI: {mpi_rank=}, {mpi_size=}")
 
@@ -196,6 +206,48 @@ if __name__ == "__main__":
     if MPI_avail:
         comm.Barrier()
 
+    if (
+        (mpi_rank == 0)
+        and (config["general"].get("save_colour_image", False))
+        and (not (prep_dir / f"{field_name}_rgb_direct.png").is_file())
+        and (has_astroclour)
+    ):
+
+        import astropy.visualization as astrovis
+        import matplotlib.pyplot as plt
+        from astrocolour import ColourImage
+        from astrocolour.utils import RawAsinhTransform
+
+        cimg = ColourImage(
+            [
+                # fits.getdata(prep_dir / f"{field_name}-{filt}n-clear_drc_sci.fits")
+                # for filt in ["f115w", "f150w", "f200w"]
+                fits.getdata(filepath)
+                for filepath in prep_dir.glob(f"{field_name}-f*_drc_sci.fits")
+                # for filt in ["f115w", "f150w", "f200w"]
+            ],
+            # cimg_data,
+            transformation_kwargs=dict(
+                transformation=RawAsinhTransform(
+                    astrovis.ManualInterval(-0.01, 10), 0.05
+                )
+            ),
+        )
+
+        plt.imsave(
+            prep_dir / f"{field_name}_rgb_direct.png", cimg, origin="lower", dpi=300
+        )
+        cimg.adjust_saturation()
+        cimg = np.clip(cimg, 0, 1)
+        plt.imsave(
+            prep_dir / f"{field_name}_rgb_direct_saturation.png",
+            cimg,
+            origin="lower",
+            dpi=300,
+        )
+
+    # exit()
+
     # Require photometric catalogue
     if (not (Path.cwd() / f"{field_name}_phot.fits").is_file()) and (mpi_rank == 0):
 
@@ -255,8 +307,6 @@ if __name__ == "__main__":
 
     rate_files = [str(s) for s in Path.cwd().glob("*_rate.fits")][:]
     grism_files = [str(s) for s in Path.cwd().glob("*GrismFLT.fits")][:]
-
-    print(rate_files)
 
     if (len(grism_files) == 0) and (mpi_rank == 0):
 
@@ -345,11 +395,13 @@ if __name__ == "__main__":
     # Some examples
     galaxies = {
         # LCS
-        614: 3.1,
-        1615: 1.94,
-        1516: 2.2,
-        1633: 1.97,
-        1855: 2.8,
+        # 614: 3.1,
+        # 1615: 1.94,
+        # 1516: 2.2,
+        # 1633: 1.97,
+        # 1855: 2.8,
+        # # 3028: 0.87
+        611: 3.1,
     }
 
     for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:

@@ -5,7 +5,9 @@ proposal_ids = 9365
 field_prefix = "lcs"
 field = "par08"
 field_obs_ids = 2
-reduction_ver = "1.1.1"
+reduction_ver = "1.2.0"
+skip_stage_1 = false
+save_colour_image = true
 
 [calibrations]
 crds_ver = 1535
@@ -37,11 +39,25 @@ min_bkg_thresh = 0.0
 background2d_kwargs = { }
 diffuse_catalogue_kwargs = { }
 
-# This config runs with an iterative polynomial fit for the contamination model
+# # This config runs with an iterative polynomial fit for the contamination model
+# [grism_prep]
+# init_coeffs = [1.0, -0.6]
+# refine_niter = 3
+# refine_poly_order = 7
+# mask_mosaic_edges = false
+# refine_mag_limits = [14.0,50.0]
+# prelim_mag_limit = 50.0
+# max_coeff = 1.5
+# gris_ref_filters = { GR150R = ["F115W", "F150W", "F200W"], GR150C = ["F115W", "F150W", "F200W"] }
+# use_jwst_crds = false
+# model_kwargs = {compute_size = true}
+# pad = 800
+# cpu_count = 8
+
+# This config skips the iterative contamination model and uses a flat f_lambda spectrum instead
 [grism_prep]
-init_coeffs = [1.0, -0.6]
-refine_niter = 3
-refine_poly_order = 7
+init_coeffs = [1.0]
+refine_niter = 0
 mask_mosaic_edges = false
 refine_mag_limits = [14.0,50.0]
 prelim_mag_limit = 50.0
@@ -50,19 +66,6 @@ use_jwst_crds = false
 model_kwargs = {compute_size = true}
 pad = 800
 cpu_count = 8
-
-# This config skips the iterative contamination model and uses a flat f_lambda spectrum instead
-# [grism_prep]
-# init_coeffs = [1.0]
-# refine_niter = 0
-# mask_mosaic_edges = false
-# refine_mag_limits = [14.0,50.0]
-# prelim_mag_limit = 50.0
-# gris_ref_filters = { GR150R = ["F115W", "F150W", "F200W"], GR150C = ["F115W", "F150W", "F200W"] }
-# use_jwst_crds = false
-# model_kwargs = {compute_size = true}
-# pad = 800
-# cpu_count = 4
 
 [extraction]
 cpu_count = 4
