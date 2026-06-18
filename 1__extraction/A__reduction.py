@@ -220,13 +220,9 @@ if __name__ == "__main__":
 
         cimg = ColourImage(
             [
-                # fits.getdata(prep_dir / f"{field_name}-{filt}n-clear_drc_sci.fits")
-                # for filt in ["f115w", "f150w", "f200w"]
                 fits.getdata(filepath)
                 for filepath in prep_dir.glob(f"{field_name}-f*_drc_sci.fits")
-                # for filt in ["f115w", "f150w", "f200w"]
             ],
-            # cimg_data,
             transformation_kwargs=dict(
                 transformation=RawAsinhTransform(
                     astrovis.ManualInterval(-0.01, 10), 0.05
@@ -245,8 +241,6 @@ if __name__ == "__main__":
             origin="lower",
             dpi=300,
         )
-
-    # exit()
 
     # Require photometric catalogue
     if (not (Path.cwd() / f"{field_name}_phot.fits").is_file()) and (mpi_rank == 0):
