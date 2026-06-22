@@ -7,10 +7,7 @@ from pathlib import Path
 import numpy as np
 from astropy.table import Table
 
-config_path = Path(__file__).parent / "config_lcs.toml"
-# config_path = Path(__file__).parent / "config_J0417.toml"
-# config_path = Path(__file__).parent / "config_passage.toml"
-# config_path = Path(__file__).parent / "config_par682_test.toml"
+config_path = Path(__file__).parent / "CINECA_config_par676.toml"
 
 with open(config_path, "rb") as f:
     config = tomllib.load(f)
@@ -70,7 +67,7 @@ from niriss_tools.pipeline import (
     stsci_det1,
 )
 
-root_dir = Path(config["general"].get("root_dir", Path.cwd()))
+root_dir = Path(os.path.expandvars(config["general"].get("root_dir", Path.cwd())))
 field = config["general"].get("field")
 
 field_name = f"{config["general"].get("field_prefix")}-{field}".lower()
