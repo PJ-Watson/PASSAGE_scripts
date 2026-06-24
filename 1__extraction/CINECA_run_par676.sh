@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 #SBATCH --job-name=job-par676           # Job name
 #SBATCH --time=03:00:00                 # Walltime (hh:mm:ss)
@@ -22,4 +22,6 @@ export SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK  # Set number of OpenMP threads
 
 # Run the application using srun
-srun ./myprogram < myinput > myoutput
+#srun ./myprogram < myinput > myoutput
+
+#salloc -N 1 -n 8
