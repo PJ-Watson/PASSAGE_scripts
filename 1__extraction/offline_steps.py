@@ -46,6 +46,8 @@ if __name__ == "__main__":
 
     # https://github.com/PJ-Watson/niriss-tools
     from niriss_tools.pipeline import (
+        construct_exposure_table,
+        gaia_catalogue_from_obs_table,
         queryMAST,
     )
 
@@ -65,8 +67,6 @@ if __name__ == "__main__":
     level_1_dir = reduction_dir / "Level1"
 
     if not config["general"].get("skip_stage_1", True):
-
-        print(root_dir / f"MAST_summary_{proposal_IDs}.csv")
 
         # Find the correct observations
         if not (root_dir / f"MAST_summary_{proposal_IDs}.csv").is_file():
@@ -98,3 +98,18 @@ if __name__ == "__main__":
 
         if len(field_obs_download) > 0:
             mastutils.download_from_mast(field_obs_download, path=MAST_dir)
+
+        all_exp_tab = construct_exposure_table(MAST_dir, ext_pattern="*uncal.fits")
+
+    else:
+        all_exp_tab = construct_exposure_table(level_1_dir, ext_pattern="*rate.fits")
+
+    direct_tab = all_exp_tab[["CLEAR" in c for c in exp_tab["filter"]]]
+
+    gaia = gaia_catalogue_from_obs_table(direct_tab)
+    gaia.write(reduction_dir / f"{field_name}.gaia.fits")
+
+    from grizli.prep import table_to_radec, table_to_regions
+
+    table_to_radec(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.radec")
+    table_to_regions(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.reg")
