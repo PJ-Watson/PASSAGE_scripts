@@ -1,5 +1,6 @@
 """An example workflow for reducing NIRISS/WFSS data from GLASS-JWST ERS."""
 
+import argparse
 import os
 import tomllib
 from pathlib import Path

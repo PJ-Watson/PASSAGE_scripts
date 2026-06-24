@@ -1,5 +1,6 @@
 """An example workflow for reducing NIRISS/WFSS data from GLASS-JWST ERS."""
 
+import argparse
 import os
 import shutil
 import tomllib
@@ -9,9 +10,16 @@ from time import time
 import numpy as np
 from astropy.table import Table
 
-config_path = Path(__file__).parent / "config_lcs.toml"
+parser = argparse.ArgumentParser(description="Run the data extraction pipeline.")
+parser.add_argument(
+    "config_path",
+    type=str,
+    metavar="config_path",
+    help="The path of the configuration file used to setup the fits.",
+)
+args = parser.parse_args()
 
-with open(config_path, "rb") as f:
+with open(args.config_path, "rb") as f:
     config = tomllib.load(f)
 
 # detect if run through mpiexec/mpirun

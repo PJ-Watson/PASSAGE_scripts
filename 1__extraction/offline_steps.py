@@ -104,7 +104,7 @@ if __name__ == "__main__":
     else:
         all_exp_tab = construct_exposure_table(level_1_dir, ext_pattern="*rate.fits")
 
-    direct_tab = all_exp_tab[["CLEAR" in c for c in exp_tab["filter"]]]
+    direct_tab = all_exp_tab[["CLEAR" in c for c in all_exp_tab["filter"]]]
 
     gaia = gaia_catalogue_from_obs_table(direct_tab)
     gaia.write(reduction_dir / f"{field_name}.gaia.fits")
