@@ -136,7 +136,11 @@ if __name__ == "__main__":
         dataset_ids, np.ceil(len(dataset_ids) / max_ref_size)
     )
 
-    for dataset_id_chunk in dataset_id_chunks:
+    from tqdm import tqdm
+
+    for dataset_id_chunk in tqdm(
+        dataset_id_chunks, desc="Determining references for dataset IDs"
+    ):
         all_refs_dict = api.get_best_references_by_ids(
             os.getenv("CRDS_CONTEXT"), dataset_id_chunk.tolist()
         )
