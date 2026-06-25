@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import pickle
 import shutil
 import tomllib
 from pathlib import Path
@@ -151,17 +152,21 @@ if __name__ == "__main__":
 
     grism_files_split = comm.scatter(grism_files_split, root=0)
 
+    filetype_list = [
+        "beams",
+        "beams_stacked",
+        "full",
+        "1D_RC",
+        "1D",
+        "row",
+        "line",
+        "log_par",
+        "tfit",
+        "stack",
+    ]
+
     if mpi_rank == 0:
-        for filetype in [
-            "beams",
-            "beams_stacked",
-            "full",
-            "1D",
-            "row",
-            "line",
-            "log_par",
-            "stack",
-        ]:
+        for filetype in filetype_list:
             (extractions_dir / filetype).mkdir(exist_ok=True, parents=True)
             # for chunk_i, grism_subset in enumerate(np.array_split(flt_files, mpi_size)):
             for i in np.arange(mpi_size):
@@ -369,11 +374,11 @@ if __name__ == "__main__":
 
     beam_kwargs = config["extraction"].get("beams", {})
 
-    for i, row in enumerate(fit_cat[:1]):
+    for i, row in enumerate(fit_cat[:]):
 
         obj_id = row["id"]
 
-        print(mpi_rank, obj_id)
+        print(f"{mpi_rank=}, {obj_id=}")
 
         if obj_id in bad_objs:
             continue
@@ -450,15 +455,64 @@ if __name__ == "__main__":
                     np.clip(2 * row["beam_size"] * 0.06, a_min=3, a_max=30)
                 )
 
-            _ = fitting.run_all_parallel(
+            mb, st, fit, tfit, line_hdu = fitting.run_all_parallel(
                 int(obj_id),
                 pline=pline,
-                get_output_data=False,
+                get_output_data=True,
             )
+
+            # try:
+
+            with open(
+                Path.cwd() / f"{field_name}_{obj_id:0>5}.tfit.pickle", "wb"
+            ) as pickle_filepath:
+                pickle.dump(tfit, pickle_filepath)
+            # except:
+            #     pass
+
+            # try:
+            new_hdul = mb.oned_spectrum_to_hdu(tfit=tfit)
+
+            # print(tfit["coeffs"])
+            # print(mb.N, len(tfit["coeffs"]))
+            # exit()
+
+            for k, v in mb.PA.items():
+                for pa, beam_idx in v.items():
+                    # try:
+                    _mb = multifit.MultiBeam(
+                        [mb.beams[i] for i in beam_idx], **beam_kwargs
+                    )
+                    _tfit = tfit.copy()
+                    _tfit["coeffs"] = [tfit["coeffs"][i] for i in beam_idx]
+                    _tfit["coeffs"].extend(tfit["coeffs"][mb.N :])
+                    _tfit["coeffs"] = np.asarray(_tfit["coeffs"])
+                    out = _mb.oned_spectrum_to_hdu(tfit=_tfit)
+                    out[-1].header["EXTVER"] = pa
+                    out[-1].header["FILTER"] = _mb.beams[0].grism.filter
+                    new_hdul.append(out[-1])
+                    # except:
+                    #     continue
+                    # print (out[0].header)
+                # mb = MultiBeam()
+                # print (v)
+            # mb = MultiBeam()
+            # try:
+            #     del _mb
+            # except:
+            #     pass
+
+            # new_hdul.info()
+
+            new_hdul.writeto(Path.cwd() / f"{field_name}_{mb.id:0>5}.1D_RC.fits")
+            del new_hdul
+            del mb
+            # except:
+            #     pass
 
             print(f"{mpi_rank=}: Fit complete, output saved.")
             print(f"{mpi_rank=}: Time taken: {time()-t0}")
-            for filetype in ["full", "1D", "row", "line", "log_par", "stack", "beams"]:
+            for filetype in filetype_list:
                 [
                     p.rename(extractions_dir / filetype / p.name)
                     for p in Path.cwd().glob(f"*{obj_id}.*{filetype}*")

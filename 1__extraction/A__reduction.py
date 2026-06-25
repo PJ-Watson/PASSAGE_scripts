@@ -107,9 +107,8 @@ if mpi_rank == 0:
             sep="\n",
         )
         offline_needed = True
-        if MPI_avail:
-            comm.bcast(offline_needed, root=0)
-else:
+        
+if MPI_avail:
     offline_needed = comm.bcast(offline_needed, root=0)
 
 if offline_needed:
