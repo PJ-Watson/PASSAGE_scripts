@@ -92,6 +92,28 @@ reduction_ver = config["general"].get("reduction_ver", "1.0.0")
 reduction_dir = root_dir / reduction_ver / field_name
 reduction_dir.mkdir(exist_ok=True, parents=True)
 
+# Guard against running offline processing without the required files
+# in place. Slightly messy since this has to kill all MPI processes.
+offline_needed = False
+if mpi_rank == 0:
+    if (not len(list(reduction_dir.glob(f"{field_name}.*.radec"))) > 0) and (
+        config["general"].get("process_offline", False)
+    ):
+        print(
+            "You are attempting to run the processing in offline mode, ",
+            "but the required files are not available. Either set",
+            "`process_offline = false` under `[general]` in the config",
+            "file, or run `A__offline_preprocess.py` first.",
+            sep="\n",
+        )
+        offline_needed = True
+        if MPI_avail:
+            comm.bcast(offline_needed, root=0)
+else:
+    offline_needed = comm.bcast(offline_needed, root=0)
+
+if offline_needed:
+    exit()
 
 if __name__ == "__main__":
 
