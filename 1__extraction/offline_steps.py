@@ -53,8 +53,8 @@ if __name__ == "__main__":
     # https://github.com/PJ-Watson/niriss-tools
     from niriss_tools.pipeline import (
         construct_exposure_table,
-        gaia_catalogue_from_obs_table,
         queryMAST,
+        radec_catalogue_from_obs_table,
     )
 
     root_dir = Path(os.path.expandvars(config["general"].get("root_dir", Path.cwd())))
@@ -112,15 +112,22 @@ if __name__ == "__main__":
 
     direct_tab = all_exp_tab[["CLEAR" in c for c in all_exp_tab["filter"]]]
 
-    if not (reduction_dir / f"{field_name}.gaia.radec").is_file():
-
-        gaia = gaia_catalogue_from_obs_table(direct_tab)
-        gaia.write(reduction_dir / f"{field_name}.gaia.fits")
+    if not len(list(reduction_dir.glob(f"{field_name}.*.radec"))) > 0:
+        reference_cats = config["calibrations"].get("reference_cats")
+        kwargs = {}
+        if reference_cats is not None:
+            kwargs |= {"reference_catalogues": reference_cats}
+        radec, ref_src = radec_catalogue_from_obs_table(direct_tab, **kwargs)
+        radec.write(reduction_dir / f"{field_name}.{ref_src}.fits")
 
         from grizli.prep import table_to_radec, table_to_regions
 
-        table_to_radec(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.radec")
-        table_to_regions(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.reg")
+        table_to_radec(
+            radec[radec["valid"]], reduction_dir / f"{field_name}.{ref_src}.radec"
+        )
+        table_to_regions(
+            radec[radec["valid"]], reduction_dir / f"{field_name}.{ref_src}.reg"
+        )
 
     from crds.client import api
 
