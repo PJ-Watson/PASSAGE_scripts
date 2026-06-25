@@ -29,6 +29,12 @@ if __name__ == "__main__":
     os.environ["CRDS_CONTEXT"] = (
         f"jwst_{config["calibrations"].get("crds_ver", 1535)}.pmap"
     )
+
+    # Temporarily override the CRDS server address
+    old_server_url = os.getenv("CRDS_SERVER_URL")
+
+    os.environ["CRDS_SERVER_URL"] = "https://jwst-crds.stsci.edu"
+
     # Set to "NGDEEP" to use those calibrations
     os.environ["NIRISS_CALIB"] = config["calibrations"].get(
         "niriss_calib", "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
@@ -106,10 +112,44 @@ if __name__ == "__main__":
 
     direct_tab = all_exp_tab[["CLEAR" in c for c in all_exp_tab["filter"]]]
 
-    gaia = gaia_catalogue_from_obs_table(direct_tab)
-    gaia.write(reduction_dir / f"{field_name}.gaia.fits")
+    if not (reduction_dir / f"{field_name}.gaia.radec").is_file():
 
-    from grizli.prep import table_to_radec, table_to_regions
+        gaia = gaia_catalogue_from_obs_table(direct_tab)
+        gaia.write(reduction_dir / f"{field_name}.gaia.fits")
 
-    table_to_radec(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.radec")
-    table_to_regions(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.reg")
+        from grizli.prep import table_to_radec, table_to_regions
+
+        table_to_radec(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.radec")
+        table_to_regions(gaia[gaia["valid"]], reduction_dir / f"{field_name}.gaia.reg")
+
+    from crds.client import api
+
+    dataset_ids = list(all_exp_tab["dataset"])
+
+    refs_to_download = [os.getenv("CRDS_CONTEXT")]
+
+    # Fetching CRDS best references seems almost unusably slow
+    # during testing. This splits the dataset ids into chunks
+    # to attempt to mitigate timeouts
+    max_ref_size = 10
+    dataset_id_chunks = np.array_split(
+        dataset_ids, np.ceil(len(dataset_ids) / max_ref_size)
+    )
+
+    for dataset_id_chunk in dataset_id_chunks:
+        all_refs_dict = api.get_best_references_by_ids(
+            os.getenv("CRDS_CONTEXT"), dataset_id_chunk.tolist()
+        )
+        for dataset_id, dataset_refs in all_refs_dict.items():
+            refs_to_download.extend(
+                [v for k, v in dataset_refs[1].items() if ("NOT FOUND" not in v)]
+            )
+    refs_to_download = np.unique(refs_to_download)
+    print(
+        f"Fetching best references with context '{os.getenv("CRDS_CONTEXT")}'."
+        f"\n{len(refs_to_download)} files will be downloaded."
+    )
+    api.dump_references(os.getenv("CRDS_CONTEXT"), refs_to_download)
+
+    if old_server_url is not None:
+        os.environ["CRDS_SERVER_URL"] = old_server_url

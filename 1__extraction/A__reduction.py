@@ -48,6 +48,10 @@ print(f"MPI: {mpi_rank=}, {mpi_size=}")
 
 # Latest context
 os.environ["CRDS_CONTEXT"] = f"jwst_{config["calibrations"].get("crds_ver", 1535)}.pmap"
+os.environ["CRDS_SERVER_URL"] = config["calibrations"].get(
+    "crds_server_url", "https://jwst-crds.stsci.edu"
+)
+os.environ["CRDS_MODE"] = config["calibrations"].get("crds_mode", "auto")
 # Set to "NGDEEP" to use those calibrations
 os.environ["NIRISS_CALIB"] = config["calibrations"].get(
     "niriss_calib", "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
