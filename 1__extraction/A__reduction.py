@@ -115,6 +115,13 @@ else:
 if offline_needed:
     exit()
 
+# Cleaner way to point to files than hardcode in config
+if config["general"].get("process_offline", False):
+    poss_radec = list(reduction_dir.glob(f"{field_name}.*.radec"))
+    poss_radec.sort()
+    if config["grizli_processing"].get("master_radec") is None:
+        config["grizli_processing"]["master_radec"] = str(poss_radec[0])
+
 if __name__ == "__main__":
 
     level_1_dir = reduction_dir / "Level1"
