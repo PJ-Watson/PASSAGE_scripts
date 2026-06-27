@@ -362,17 +362,21 @@ if __name__ == "__main__":
 
     t0 = time()
 
+    beam_kwargs = config["extraction"].get("beams", {})
+
     if mpi_rank == 0:
         os.chdir(extractions_dir)
         args = auto_script.generate_fit_params(
-            field_root=field_name, **config["extraction"].get("fit_params", {})
+            field_root=field_name,
+            **beam_kwargs,
+            **config["extraction"].get("fit_params", {}),
         )
     else:
         args = None
-    args = comm.bcast(args, root=0)
-    comm.Barrier()
 
-    beam_kwargs = config["extraction"].get("beams", {})
+    if MPI_avail:
+        args = comm.bcast(args, root=0)
+        comm.Barrier()
 
     for i, row in enumerate(fit_cat[:]):
 
