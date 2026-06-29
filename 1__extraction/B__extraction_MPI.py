@@ -63,6 +63,7 @@ if MPI_avail:
 
 # https://github.com/PJ-Watson/niriss-tools
 from niriss_tools.grism import gen_stacked_beams
+from niriss_tools.pipeline import separate_oned_spectra
 
 root_dir = Path(config["general"].get("root_dir", Path.cwd()))
 field = config["general"].get("field")
@@ -465,62 +466,37 @@ if __name__ == "__main__":
                 get_output_data=True,
             )
 
-            # try:
+            try:
+                with open(
+                    Path.cwd() / f"{field_name}_{obj_id:0>5}.tfit.pickle", "wb"
+                ) as pickle_filepath:
+                    pickle.dump(tfit, pickle_filepath)
+            except Exception as e:
+                print(
+                    f"{mpi_rank=}: {obj_id=} Failed to write tfit to file: {e}",
+                    flush=True,
+                )
 
-            with open(
-                Path.cwd() / f"{field_name}_{obj_id:0>5}.tfit.pickle", "wb"
-            ) as pickle_filepath:
-                pickle.dump(tfit, pickle_filepath)
-            # except:
-            #     pass
+            try:
+                oned_RC = separate_oned_spectra(mb, tfit)
+                oned_RC.writeto(Path.cwd() / f"{field_name}_{mb.id:0>5}.1D_RC.fits")
+                del oned_RC
+                del mb
+                del tfit
+            except Exception as e:
+                print(
+                    f"{mpi_rank=}: {obj_id=} Failed to write 1D_RC spectra: {e}",
+                    flush=True,
+                )
 
-            # try:
-            new_hdul = mb.oned_spectrum_to_hdu(tfit=tfit)
-
-            # print(tfit["coeffs"])
-            # print(mb.N, len(tfit["coeffs"]))
-            # exit()
-
-            for k, v in mb.PA.items():
-                for pa, beam_idx in v.items():
-                    # try:
-                    _mb = multifit.MultiBeam(
-                        [mb.beams[i] for i in beam_idx], **beam_kwargs
-                    )
-                    _tfit = tfit.copy()
-                    _tfit["coeffs"] = [tfit["coeffs"][i] for i in beam_idx]
-                    _tfit["coeffs"].extend(tfit["coeffs"][mb.N :])
-                    _tfit["coeffs"] = np.asarray(_tfit["coeffs"])
-                    out = _mb.oned_spectrum_to_hdu(tfit=_tfit)
-                    out[-1].header["EXTVER"] = pa
-                    out[-1].header["FILTER"] = _mb.beams[0].grism.filter
-                    new_hdul.append(out[-1])
-                    # except:
-                    #     continue
-                    # print (out[0].header)
-                # mb = MultiBeam()
-                # print (v)
-            # mb = MultiBeam()
-            # try:
-            #     del _mb
-            # except:
-            #     pass
-
-            # new_hdul.info()
-
-            new_hdul.writeto(Path.cwd() / f"{field_name}_{mb.id:0>5}.1D_RC.fits")
-            del new_hdul
-            del mb
-            # except:
-            #     pass
-
-            print(f"{mpi_rank=}: Fit complete, output saved.")
-            print(f"{mpi_rank=}: Time taken: {time()-t0}")
             for filetype in filetype_list:
                 [
                     p.rename(extractions_dir / filetype / p.name)
                     for p in Path.cwd().glob(f"*{obj_id}.*{filetype}*")
                 ]
+
+            print(f"{mpi_rank=}: {obj_id=} Fit complete, output saved.", flush=True)
+            print(f"{mpi_rank=}: {obj_id=} Time taken: {time()-t0}", flush=True)
             # (Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits").rename(
             #     extractions_dir
             #     / "beams_stacked"
