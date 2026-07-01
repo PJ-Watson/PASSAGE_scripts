@@ -62,7 +62,7 @@ if MPI_avail:
     comm.Barrier()
 
 # https://github.com/PJ-Watson/niriss-tools
-from niriss_tools.grism import gen_stacked_beams
+from niriss_tools.grism.utils import gen_stacked_beams
 from niriss_tools.pipeline import separate_oned_spectra
 
 root_dir = Path(config["general"].get("root_dir", Path.cwd()))
@@ -392,14 +392,6 @@ if __name__ == "__main__":
 
             os.chdir(extractions_dir)
 
-            # try:
-            #     shutil.copy2(
-            #         extractions_dir
-            #         / "beams_stacked"
-            #         / f"{field_name}_{obj_id:0>5}.beams.fits",
-            #         f"{field_name}_{obj_id:05}.beams.fits",
-            #     )
-            # except:
             try:
                 mb = multifit.MultiBeam(
                     str(
@@ -423,34 +415,47 @@ if __name__ == "__main__":
                 for m in mb_parts_list:
                     Path(m).unlink()
 
+            # os.chdir(extractions_dir / "beams")
             mb.write_master_fits()
-            shutil.copy2(
-                Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits",
-                extractions_dir / "beams" / f"{field_name}_{obj_id:0>5}.beams.fits",
-            )
+            # os.chdir(extractions_dir)
+            if not (
+                extractions_dir / "beams" / f"{field_name}_{obj_id:0>5}.beams.fits"
+            ).is_file():
+                shutil.copy2(
+                    Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits",
+                    extractions_dir / "beams" / f"{field_name}_{obj_id:0>5}.beams.fits",
+                )
 
-            # # Cluster and stack the individual beams before fitting
-            # new_mb = gen_stacked_beams(
-            #     mb,
-            #     fcontam=0.2,
-            #     min_sens=0.0,
-            #     min_mask=0,
-            #     group_name=field_name,
-            #     cluster_beams=True,
-            # )
+            if config["extraction"].get("stack_beams", False):
+                try:
+                    shutil.copy2(
+                        extractions_dir
+                        / "beams_stacked"
+                        / f"{field_name}_{obj_id:0>5}.beams.fits",
+                        f"{field_name}_{obj_id:05}.beams.fits",
+                    )
+                except:
+                    # Cluster and stack the individual beams before fitting
+                    new_mb = gen_stacked_beams(
+                        mb,
+                        group_name=field_name,
+                        **config["extraction"].get("stack_kwargs", {}),
+                        **beam_kwargs,
+                    )
 
-            # # Save and copy immediately to the stacked folder
-            # # Avoids rerunning clustering code if things crash
-            # # during redshift fitting
-            # new_mb.write_master_fits()
-            # shutil.copy2(
-            #     Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits",
-            #     extractions_dir
-            #     / "beams_stacked"
-            #     / f"{field_name}_{obj_id:0>5}.beams.fits",
-            # )
-            # del mb
-            # del new_mb
+                    # Save and copy immediately to the stacked folder
+                    # Avoids rerunning clustering code if things crash
+                    # during redshift fitting
+                    new_mb.write_master_fits()
+                    shutil.copy2(
+                        Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits",
+                        extractions_dir
+                        / "beams_stacked"
+                        / f"{field_name}_{obj_id:0>5}.beams.fits",
+                    )
+                    del new_mb
+
+            del mb
 
             # Change parameters here for the drizzled emission line outputs
             pline = args.get("pline", {})
