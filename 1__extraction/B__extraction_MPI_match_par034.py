@@ -1,0 +1,568 @@
+"""An example workflow for reducing NIRISS/WFSS data from GLASS-JWST ERS."""
+
+import os
+import shutil
+import tomllib
+from pathlib import Path
+from time import time
+
+import numpy as np
+from astropy.table import Table
+
+config_path = Path(__file__).parent / "config_passage.toml"
+
+with open(config_path, "rb") as f:
+    config = tomllib.load(f)
+
+# detect if run through mpiexec/mpirun
+MPI_avail = False
+try:
+    from mpi4py import MPI
+
+    comm = MPI.COMM_WORLD
+    mpi_rank = comm.Get_rank()
+    mpi_size = comm.Get_size()
+
+    MPI_avail = True
+
+except ImportError:
+    print("Could not import MPI")
+    mpi_rank = 0
+    mpi_size = 1
+
+print(f"MPI: {mpi_rank=}, {mpi_size=}")
+
+# Latest context
+os.environ["CRDS_CONTEXT"] = f"jwst_{config["calibrations"].get("crds_ver", 1535)}.pmap"
+# Set to "NGDEEP" to use those calibrations
+os.environ["NIRISS_CALIB"] = config["calibrations"].get(
+    "niriss_calib", "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
+)
+
+if mpi_rank == 0:
+    # Symlink the custom configuration files.
+    # The format for these is pretty self explanatory, and the current set
+    # combines the NGDEEP configuration for the first order, with the grizli defaults
+    # for all other orders.
+    for orig in (Path(__file__).parent / "conf_data").glob("*"):
+        if not (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).exists():
+            (Path(os.getenv("GRIZLI")) / "CONF" / orig.name).symlink_to(
+                orig, target_is_directory=orig.is_dir()
+            )
+if MPI_avail:
+    comm.Barrier()
+
+# https://github.com/PJ-Watson/niriss-tools
+from niriss_tools.grism import gen_stacked_beams
+
+root_dir = Path(config["general"].get("root_dir", Path.cwd()))
+field = config["general"].get("field")
+
+field_name = f"{config["general"].get("field_prefix")}-{field}".lower()
+
+field_obs_IDs = config["general"].get("field_obs_ids")
+proposal_IDs = config["general"].get("proposal_ids")
+
+reduction_ver = config["general"].get("reduction_ver", "1.0.0")
+
+reduction_dir = root_dir / reduction_ver / field_name
+reduction_dir.mkdir(exist_ok=True, parents=True)
+
+import warnings
+
+# Quiet some of the common the grizli-induced warnings
+from astropy.io.fits.verify import VerifyWarning
+from astropy.units import UnitsWarning
+from astropy.wcs import FITSFixedWarning
+
+for w in [VerifyWarning, FITSFixedWarning, UnitsWarning, RuntimeWarning]:
+    warnings.simplefilter("ignore", category=w)
+
+# In case some objects need to be filtered out manually
+bad_objs = [
+    1784,
+    5443,
+]
+
+zeroth_order_ids = [
+    465,
+    502,
+    516,
+    529,
+    670,
+    699,
+    595,
+    724,
+    776,
+    1011,
+    1102,
+    1358,
+    1498,
+    1535,
+    1589,
+    1682,
+    1709,
+    1713,
+    1755,
+    1780,
+    1818,
+    1828,
+    1829,
+    2057,
+    2152,
+    2175,
+    2232,
+    2334,
+    2558,
+    2588,
+    2593,
+    2681,
+    2684,
+    2687,
+    2762,
+    3006,
+    3023,
+    3604,
+    3764,
+    4132,
+    4141,
+    4288,
+    4310,
+    4348,
+    4362,
+    4396,
+    4407,
+    4452,
+    4461,
+    4615,
+    4717,
+    4729,
+    4730,
+    4778,
+    4782,
+]
+
+if __name__ == "__main__":
+
+    import logging
+
+    import grizli
+    from astropy.io import fits
+    from grizli import fitting, jwst_utils, multifit, prep, utils
+    from grizli.pipeline import auto_script
+
+    print("Grizli version: ", grizli.__version__)
+
+    # Quiet JWST log warnings
+    jwst_utils.QUIET_LEVEL = logging.INFO
+    jwst_utils.set_quiet_logging(jwst_utils.QUIET_LEVEL)
+
+    # Setup the grizli directory structure
+    grizli_home_dir = reduction_dir / "grizli_home"
+    prep_dir = grizli_home_dir / "Prep"
+    extractions_dir = grizli_home_dir / "Extractions"
+
+    if mpi_rank == 0:
+        prep_dir.mkdir(exist_ok=True, parents=True)
+        extractions_dir.mkdir(exist_ok=True, parents=True)
+
+    kwargs = auto_script.get_yml_parameters()
+
+    # The number of files to load on each process - not used in this script
+    # chunk_size = config["extraction"].get("chunk_size", 8)
+    # cpu_count = 8
+
+    files_to_link = []
+    patterns = [
+        "*drc*.fits",
+        "*_seg.fits",
+        "*GrismFLT.fits",
+        "*GrismFLT.pkl",
+        "*wcs.fits",
+        "*cat.fits",
+        "*phot.fits",
+    ]
+    for p in patterns:
+        files_to_link.extend(prep_dir.glob(p))
+    if mpi_rank == 0:
+        for file in files_to_link:
+            if not (extractions_dir / file.name).is_file():
+                (extractions_dir / file.name).symlink_to(file)
+    if MPI_avail:
+        comm.Barrier()
+
+    # The usual extraction code follows
+
+    os.chdir(extractions_dir)
+
+    if mpi_rank == 0:
+        flt_files = [str(s) for s in extractions_dir.glob("*GrismFLT.fits")][:]
+        flt_files.sort()
+        grism_files_split = np.array_split(flt_files, mpi_size)
+    else:
+        grism_files_split = None
+
+    grism_files_split = comm.scatter(grism_files_split, root=0)
+
+    if mpi_rank == 0:
+        for filetype in [
+            "beams",
+            "beams_stacked",
+            "full",
+            "1D",
+            "row",
+            "line",
+            "log_par",
+            "stack",
+        ]:
+            (extractions_dir / filetype).mkdir(exist_ok=True, parents=True)
+            # for chunk_i, grism_subset in enumerate(np.array_split(flt_files, mpi_size)):
+            for i in np.arange(mpi_size):
+                (extractions_dir / "beams" / f"process_{i}_{mpi_size}").mkdir(
+                    exist_ok=True, parents=True
+                )
+    comm.Barrier()
+
+    max_size = config["extraction"].get("max_size", 150)
+    min_size = config["extraction"].get("min_size", 15)
+
+    mag_limit = config["extraction"].get("mag_limit", 50)
+
+    if mpi_rank == 0:
+        phot_cat = Table.read(extractions_dir / f"{field_name}_phot.fits")
+
+        # phot_cat = phot_cat[np.isin(phot_cat["id"], candidate_obj_ids)]
+        phot_cat = phot_cat[phot_cat["mag_auto"] < mag_limit]
+
+        old_table = Table.read(extractions_dir / "Par034_speccat_cwt.fits")
+
+        import astropy.units as u
+        from astropy.coordinates import SkyCoord
+
+        old_coords = SkyCoord(ra=old_table["ra"], dec=old_table["dec"], unit="deg")
+        new_coords = SkyCoord(ra=phot_cat["ra"], dec=phot_cat["dec"], unit="deg")
+        out = new_coords.match_to_catalog_sky(old_coords)
+        idx, d2d, d3d = new_coords.match_to_catalog_sky(old_coords)
+        max_sep = 0.3 * u.arcsec
+        sep_constraint = d2d < max_sep
+        phot_cat[sep_constraint].pprint()
+        # print (out)
+        # # print (old_table)
+        # print (len(np.unique(phot_cat[sep_constraint]["id"])))
+        # exit()
+        phot_cat = phot_cat[sep_constraint]
+        phot_cat["v1_id"] = old_table[idx[sep_constraint]]["id"]
+        phot_cat.write(
+            extractions_dir / "matched_Par034_speccat_cwt.fits", overwrite=True
+        )
+
+        if config["extraction"].get("recalculate_size"):
+
+            # The extra factor is to account for the different pixel scale
+            # between the mosaic and the grism data, and a small fudge in case
+            # of blotting effects or pixelation artefacts
+            phot_cat["est_extent"] = (
+                np.sqrt(2)
+                * np.nanmax(
+                    [
+                        phot_cat["xmax"] - phot_cat["x"],
+                        phot_cat["x"] - phot_cat["xmin"],
+                        phot_cat["ymax"] - phot_cat["y"],
+                        phot_cat["y"] - phot_cat["ymin"],
+                    ],
+                    axis=0,
+                )
+                * 0.5
+                * 1.2
+            )
+            phot_cat["beam_size"] = np.nanmin(
+                [
+                    np.nanmax(
+                        [
+                            phot_cat["est_extent"],
+                            np.full_like(phot_cat["est_extent"], min_size),
+                        ],
+                        axis=0,
+                    ),
+                    np.full_like(phot_cat["est_extent"], max_size),
+                ],
+                axis=0,
+            ).astype(int)
+        else:
+            phot_cat["beam_size"] = np.full_like(
+                phot_cat["x"], config["extraction"].get("beam_size", 50)
+            ).astype(int)
+        phot_cat.pprint()
+
+        # Check the status of all objects in the catalogue
+        phot_cat["status"] = 0
+        for i, row in enumerate(phot_cat):
+            obj_id = row["id"]
+
+            if (
+                extractions_dir / "full" / f"{field_name}_{obj_id:0>5}.full.fits"
+            ).is_file():
+                phot_cat["status"][i] = 0
+            elif (
+                extractions_dir
+                / "beams_stacked"
+                / f"{field_name}_{obj_id:0>5}.beams.fits"
+            ).is_file():
+                phot_cat["status"][i] = 1
+            elif (
+                extractions_dir / "beams" / f"{field_name}_{obj_id:0>5}.beams.fits"
+            ).is_file():
+                phot_cat["status"][i] = 2
+            else:
+                phot_cat["status"][i] = 3
+
+            if phot_cat["status"][i] < 3:
+                for m in (extractions_dir / "beams").glob(
+                    f"*/{field_name}_{obj_id:0>5}.beams.fits"
+                ):
+                    m.unlink()
+    else:
+        phot_cat = None
+    phot_cat = comm.bcast(phot_cat, root=0)
+
+    beams_cat = phot_cat.copy()
+    beams_cat = beams_cat[beams_cat["status"] == 3]
+    process_dir = extractions_dir / "beams" / f"process_{mpi_rank}_{mpi_size}"
+    beams_cat["beams_status"] = [
+        (process_dir / f"{field_name}_{obj_id:0>5}.beams.fits").is_file()
+        for obj_id in beams_cat["id"]
+    ]
+    beams_cat = beams_cat[np.logical_not(beams_cat["beams_status"])]
+
+    # if len(beams_cat) > 0:
+
+    #     # for chunk_i, grism_subset in enumerate(
+    #     #     np.split(
+    #     #         grism_files_split,
+    #     #         np.arange(chunk_size, len(grism_files_split), chunk_size),
+    #     #     )
+    #     # ):
+
+    #     os.chdir(extractions_dir)
+
+    #     # sub_beams_dir = process_dir / f"sub_{chunk_i}"
+    #     # sub_beams_dir.mkdir(exist_ok=True)
+
+    #     beams_extracted = [
+    #         (process_dir / f"{field_name}_{obj_id:0>5}.beams.fits").is_file()
+    #         for obj_id in beams_cat["id"]
+    #     ]
+
+    #     if not all(beams_extracted):
+
+    #         grp = multifit.GroupFLT(
+    #             grism_files=grism_files_split,
+    #             catalog=f"{field_name}-ir.cat.fits",
+    #             cpu_count=config["extraction"].get("cpu_count", 1),
+    #             sci_extn=1,
+    #             pad=config["grism_prep"].get("pad", 800),
+    #         )
+    #         os.chdir(process_dir)
+
+    #         for i, row in enumerate(beams_cat[np.logical_not(beams_extracted)]):
+
+    #             try:
+    #                 beam_kwargs = config["extraction"].get("beams", {})
+    #                 beams = grp.get_beams(
+    #                     row["id"],
+    #                     size=row["beam_size"],
+    #                     min_mask=beam_kwargs.get("min_mask", 0.0),
+    #                     min_sens=beam_kwargs.get("min_sens", 0.0),
+    #                     min_overlap=beam_kwargs.get("min_overlap", 0.0),
+    #                     beam_id="A",
+    #                 )
+    #                 mb = multifit.MultiBeam(beams, group_name=field_name, **beam_kwargs)
+    #                 if config["extraction"].get("fit_trace_shift", False):
+    #                     mb.fit_trace_shift()
+    #                 # _ = mb.oned_figure()
+    #                 #     _ = mb.drizzle_grisms_and_PAs(size=32, scale=0.5, diff=False)
+    #                 mb.write_master_fits()
+    #             except Exception as e:
+    #                 print(e)
+    #                 pass
+
+    #     # del grp
+
+    #     # os.chdir(process_dir)
+
+    #     # # Merge the chunked beams files
+    #     # for row in beams_cat:
+    #     #     try:
+    #     #         mb_parts_list = [
+    #     #             str(m)
+    #     #             for m in (process_dir).glob(
+    #     #                 f"*/{field_name}_{row["id"]:0>5}.beams.fits"
+    #     #             )
+    #     #         ]
+    #     #         mb = multifit.MultiBeam(
+    #     #             # str(extractions_dir / "backup" /"beams" / f"{field_name}_{obj_id:0>5}.beams.fits"),
+    #     #             mb_parts_list[:],
+    #     #             fcontam=0.2,
+    #     #             min_sens=0.0,
+    #     #             min_mask=0,
+    #     #             group_name=field_name,
+    #     #         )
+    #     #         mb.write_master_fits()
+    #     #     except:
+    #     #         print(f"{mpi_rank=}: No beams found for object {row["id"]:0>5}")
+
+    #     # # Delete subdirectories when no longer needed
+    #     # for subdir in process_dir.glob("sub_*"):
+    #     #     shutil.rmtree(subdir)
+
+    if mpi_rank == 0:
+        # fit_cat = phot_cat[phot_cat["status"]>0]
+        idx_arr = np.array_split(np.nonzero(phot_cat["status"] > 0)[0], mpi_size)
+        # print (idx_arr)
+        # print (np.array_split(idx_arr, 9))
+    else:
+        idx_arr = None
+    idx_arr = comm.scatter(idx_arr, root=0)
+    fit_cat = phot_cat[idx_arr]
+    fit_cat.sort(["mag_auto"])
+
+    # print (mpi_rank, phot_cat[idx_arr])
+
+    # exit()
+
+    t0 = time()
+
+    if mpi_rank == 0:
+        os.chdir(extractions_dir)
+        args = auto_script.generate_fit_params(
+            field_root=field_name,
+            **config["extraction"].get("fit_params", {}),
+            **config["extraction"].get("beams", {}),
+        )
+        # args |= config["extraction"].get("beams", {})
+    else:
+        args = None
+    args = comm.bcast(args, root=0)
+    comm.Barrier()
+
+    # print (args)
+    # exit()
+
+    beam_kwargs = config["extraction"].get("beams", {})
+
+    for i, row in enumerate(fit_cat[:]):
+
+        obj_id = row["id"]
+
+        # if obj_id!=3441:
+        #     continue
+
+        print(f"{mpi_rank=}, fitting {obj_id=}")
+
+        if obj_id in bad_objs:
+            continue
+
+        # if row["v1_id"] not in zeroth_order_ids:
+        #     continue
+
+        try:
+
+            os.chdir(extractions_dir)
+
+            # try:
+            #     shutil.copy2(
+            #         extractions_dir
+            #         / "beams_stacked"
+            #         / f"{field_name}_{obj_id:0>5}.beams.fits",
+            #         f"{field_name}_{obj_id:05}.beams.fits",
+            #     )
+            # except:
+            try:
+                mb = multifit.MultiBeam(
+                    str(
+                        extractions_dir
+                        / "beams"
+                        / f"{field_name}_{obj_id:0>5}.beams.fits"
+                    ),
+                    group_name=field_name,
+                    **beam_kwargs,
+                )
+            except:
+                mb_parts_list = [
+                    str(m)
+                    for m in (extractions_dir / "beams").glob(
+                        f"*/{field_name}_{obj_id:0>5}.beams.fits"
+                    )
+                ]
+                mb = multifit.MultiBeam(
+                    mb_parts_list[:], group_name=field_name, **beam_kwargs
+                )
+                for m in mb_parts_list:
+                    Path(m).unlink()
+
+            # # for beam in mb.beams:
+            # print (dir(mb))
+            # print(mb.beams[0]._parse_params)
+            # print (mb.beams[0].fit_mask)
+            # import matplotlib.pyplot as plt
+            # plt.imshow(mb.beams[0].fit_mask.reshape(mb.beams[0].sh))
+            # plt.show()
+
+            # exit()
+            mb.write_master_fits()
+            shutil.copy2(
+                Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits",
+                extractions_dir / "beams" / f"{field_name}_{obj_id:0>5}.beams.fits",
+            )
+
+            # # Cluster and stack the individual beams before fitting
+            # new_mb = gen_stacked_beams(
+            #     mb,
+            #     fcontam=0.2,
+            #     min_sens=0.0,
+            #     min_mask=0,
+            #     group_name=field_name,
+            #     cluster_beams=True,
+            # )
+
+            # # Save and copy immediately to the stacked folder
+            # # Avoids rerunning clustering code if things crash
+            # # during redshift fitting
+            # new_mb.write_master_fits()
+            # shutil.copy2(
+            #     Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits",
+            #     extractions_dir
+            #     / "beams_stacked"
+            #     / f"{field_name}_{obj_id:0>5}.beams.fits",
+            # )
+            # del mb
+            # del new_mb
+
+            # Change parameters here for the drizzled emission line outputs
+            pline = args.get("pline", {})
+
+            if config["extraction"].get("recalculate_size", True):
+                pline["size"] = int(
+                    np.clip(2 * row["beam_size"] * 0.06, a_min=3, a_max=30)
+                )
+
+            _ = fitting.run_all_parallel(
+                int(obj_id),
+                pline=pline,
+                get_output_data=False,
+            )
+
+            print(f"{mpi_rank=}: Fit complete, output saved.")
+            print(f"{mpi_rank=}: Time taken: {time()-t0}")
+            for filetype in ["full", "1D", "row", "line", "log_par", "stack", "beams"]:
+                [
+                    p.rename(extractions_dir / filetype / p.name)
+                    for p in Path.cwd().glob(f"*{obj_id}.*{filetype}*")
+                ]
+            # (Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits").rename(
+            #     extractions_dir
+            #     / "beams_stacked"
+            #     / f"{field_name}_{obj_id:0>5}.beams.fits"
+            # )
+        except Exception as e:
+            print(f"{mpi_rank=}: Fitting failed for {obj_id}: {e}")
