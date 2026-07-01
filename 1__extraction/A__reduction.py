@@ -107,7 +107,7 @@ if mpi_rank == 0:
             sep="\n",
         )
         offline_needed = True
-        
+
 if MPI_avail:
     offline_needed = comm.bcast(offline_needed, root=0)
 
@@ -364,7 +364,7 @@ if __name__ == "__main__":
 
             grp = auto_script.grism_prep(field_root=field_name, **kwargs)
 
-    # exit()
+    exit()
 
     # Ensure that all processed files are correctly linked to the
     # Extractions directory
@@ -396,91 +396,103 @@ if __name__ == "__main__":
 
     flt_files = [str(s) for s in Path.cwd().glob("*GrismFLT.fits")][:]
 
-    grp = multifit.GroupFLT(
-        grism_files=flt_files,
-        catalog=f"{field_name}-ir.cat.fits",
-        cpu_count=config["extraction"].get("cpu_count", 4),
-        sci_extn=1,
-        pad=config["grism_prep"].get("pad", 800),
-    )
+    if mpi_rank == 0:
 
-    pline = {
-        "kernel": "square",
-        "pixfrac": 1.0,
-        "pixscale": 0.06,
-        "size": 5,
-        "wcs": None,
-    }
-    args = auto_script.generate_fit_params(
-        pline=pline,
-        field_root=field_name,
-        min_sens=0.0,
-        min_mask=0.0,
-        # Set both of these to True to include photometry in fitting
-        include_photometry=False,
-        use_phot_obj=False,
-        # bad_pa_threshold=10,
-        # diff2d=2,
-    )
+        # Some examples. If you want to quickly test the reduction,
+        # put some IDs and redshift guesses here.
+        galaxies = {
+            # LCS
+            # 614: 3.1,
+            # 1615: 1.94,
+            # 1516: 2.2,
+            # 1633: 1.97,
+            # 1855: 2.8,
+            # # 3028: 0.87
+            # 611: 3.1,
+            901: 3.1
+        }
 
-    # Some examples
-    galaxies = {
-        # LCS
-        # 614: 3.1,
-        # 1615: 1.94,
-        # 1516: 2.2,
-        # 1633: 1.97,
-        # 1855: 2.8,
-        # # 3028: 0.87
-        611: 3.1,
-    }
+        grp = multifit.GroupFLT(
+            grism_files=flt_files,
+            catalog=f"{field_name}-ir.cat.fits",
+            cpu_count=config["extraction"].get("cpu_count", 4),
+            sci_extn=1,
+            pad=config["grism_prep"].get("pad", 800),
+        )
 
-    for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:
-        (extractions_dir / filetype).mkdir(exist_ok=True, parents=True)
+        pline = {
+            "kernel": "square",
+            "pixfrac": 1.0,
+            "pixscale": 0.06,
+            "size": 5,
+            "wcs": None,
+        }
+        args = auto_script.generate_fit_params(
+            pline=pline,
+            field_root=field_name,
+            min_sens=0.0,
+            min_mask=0.0,
+            # Set both of these to True to include photometry in fitting
+            include_photometry=False,
+            use_phot_obj=False,
+            # bad_pa_threshold=10,
+            # diff2d=2,
+        )
 
-    for obj_id, obj_z in galaxies.items():
+        for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:
+            (extractions_dir / filetype).mkdir(exist_ok=True, parents=True)
 
-        if not (
-            grizli_home_dir
-            / "Extractions"
-            / "full"
-            / f"{field_name}_{obj_id:0>5}.full.fits"
-        ).is_file():
+        for obj_id, obj_z in galaxies.items():
 
-            beams = grp.get_beams(
-                int(obj_id),
-                size=50,
-                min_mask=0,
-                min_sens=0,
-                show_exception=True,
-                beam_id="A",
-            )
-            mb = multifit.MultiBeam(
-                beams, fcontam=0.2, min_sens=0.0, min_mask=0, group_name=field_name
-            )
+            if not (
+                grizli_home_dir
+                / "Extractions"
+                / "full"
+                / f"{field_name}_{obj_id:0>5}.full.fits"
+            ).is_file():
 
-            # This produces unusual offsets in the emission line maps.
-            # Probably a bug in grizli that I don't have the energy to
-            # chase down anymore.
-            # mb.fit_trace_shift()
-            # 2025-12-06: Should be fixed in my fork, but needs more testing
+                beams = grp.get_beams(
+                    int(obj_id),
+                    size=50,
+                    min_mask=0,
+                    min_sens=0,
+                    show_exception=True,
+                    beam_id="A",
+                )
+                mb = multifit.MultiBeam(
+                    beams, fcontam=0.2, min_sens=0.0, min_mask=0, group_name=field_name
+                )
 
-            mb.write_master_fits()
+                # This produces unusual offsets in the emission line maps.
+                # Probably a bug in grizli that I don't have the energy to
+                # chase down anymore.
+                # mb.fit_trace_shift()
+                # 2025-12-06: Should be fixed in my fork, but needs more testing
 
-            _ = fitting.run_all_parallel(
-                int(obj_id),
-                # zr=[obj_z - 0.05, obj_z + 0.05],
-                zr=[obj_z - 0.2, obj_z + 0.2],
-                # zr=[0, 5.2],
-                dz=[0.001, 0.0001],
-                verbose=True,
-                get_output_data=True,
-                skip_complete=False,
-                save_figures=True,
-            )
+                mb.write_master_fits()
 
-            for filetype in ["beams", "full", "1D", "row", "line", "log_par", "stack"]:
-                [
-                    p.rename(extractions_dir / filetype / p.name)
-                    for p in Path.cwd().glob(f"*{obj_id}.*{filetype}*")
-                ]
+                _ = fitting.run_all_parallel(
+                    int(obj_id),
+                    # zr=[obj_z - 0.05, obj_z + 0.05],
+                    zr=[obj_z - 0.5, obj_z + 0.5],
+                    # zr=[0, 5.2],
+                    dz=[0.001, 0.0001],
+                    verbose=True,
+                    get_output_data=True,
+                    skip_complete=False,
+                    save_figures=True,
+                )
+
+                for filetype in [
+                    "beams",
+                    "full",
+                    "1D",
+                    "row",
+                    "line",
+                    "log_par",
+                    "stack",
+                ]:
+                    [
+                        p.rename(extractions_dir / filetype / p.name)
+                        for p in Path.cwd().glob(f"*{obj_id}.*{filetype}*")
+                    ]
