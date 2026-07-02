@@ -364,8 +364,6 @@ if __name__ == "__main__":
 
     # exit()
 
-    t0 = time()
-
     beam_kwargs = config["extraction"].get("beams", {})
 
     if mpi_rank == 0:
@@ -383,6 +381,8 @@ if __name__ == "__main__":
         comm.Barrier()
 
     for i, row in enumerate(fit_cat[:]):
+
+        t0 = time()
 
         obj_id = row["id"]
 
@@ -497,6 +497,13 @@ if __name__ == "__main__":
                     flush=True,
                 )
 
+            if config["extraction"].get("stack_beams", False):
+                (Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits").rename(
+                    extractions_dir
+                    / "beams_stacked"
+                    / f"{field_name}_{obj_id:0>5}.beams.fits"
+                )
+
             for filetype in filetype_list:
                 [
                     p.rename(extractions_dir / filetype / p.name)
@@ -505,10 +512,5 @@ if __name__ == "__main__":
 
             print(f"{mpi_rank=}: {obj_id=} Fit complete, output saved.", flush=True)
             print(f"{mpi_rank=}: {obj_id=} Time taken: {time()-t0}", flush=True)
-            # (Path.cwd() / f"{field_name}_{obj_id:0>5}.beams.fits").rename(
-            #     extractions_dir
-            #     / "beams_stacked"
-            #     / f"{field_name}_{obj_id:0>5}.beams.fits"
-            # )
         except Exception as e:
             print(f"{mpi_rank=}: Fitting failed for {obj_id}: {e}")
