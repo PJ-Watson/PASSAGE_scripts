@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 import tomllib
 
-config_path = "/media/sharedData/python/py3.13_PIE/code/PASSAGE_scripts/1__extraction/CINECA_config_par682.toml"
+config_path = "/media/sharedData/python/py3.13_PIE/code/PASSAGE_scripts/1__extraction/config_files/CINECA_config_par682.toml"
 # config_path = "/media/sharedData/python/py3.13_PIE/code/PASSAGE_scripts/1__extraction/config_lcs-par08.toml"
 
 
@@ -71,10 +71,10 @@ if __name__=="__main__":
 
         from sklearn.cluster import DBSCAN
         dbscan_kwargs = {"eps": 5, "min_samples" : 3}
-        cluster_beams = True
+        cluster_beams = False
         separate_fwcpos = True
 
-        stacked_mb = gen_stacked_beams(mb, cluster_beams=True, **beam_kwargs)
+        stacked_mb = gen_stacked_beams(mb, cluster_beams=cluster_beams, **beam_kwargs)
         stacked_mb.write_master_fits()
 
     from grizli.pipeline import auto_script
