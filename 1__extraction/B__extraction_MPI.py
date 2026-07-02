@@ -174,7 +174,8 @@ if __name__ == "__main__":
                 (extractions_dir / "beams" / f"process_{i}_{mpi_size}").mkdir(
                     exist_ok=True, parents=True
                 )
-    comm.Barrier()
+    if MPI_avail:
+        comm.Barrier()
 
     max_size = config["extraction"].get("max_size", 150)
     min_size = config["extraction"].get("min_size", 15)
@@ -254,7 +255,8 @@ if __name__ == "__main__":
                     m.unlink()
     else:
         phot_cat = None
-    phot_cat = comm.bcast(phot_cat, root=0)
+    if MPI_avail:
+        phot_cat = comm.bcast(phot_cat, root=0)
 
     beams_cat = phot_cat.copy()
     beams_cat = beams_cat[beams_cat["status"] == 3]
@@ -353,7 +355,8 @@ if __name__ == "__main__":
         # print (np.array_split(idx_arr, 9))
     else:
         idx_arr = None
-    idx_arr = comm.scatter(idx_arr, root=0)
+    if MPI_avail:
+        idx_arr = comm.scatter(idx_arr, root=0)
     fit_cat = phot_cat[idx_arr]
     fit_cat.sort(["mag_auto"])
 
