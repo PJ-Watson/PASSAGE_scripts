@@ -65,7 +65,7 @@ if MPI_avail:
 from niriss_tools.grism.utils import gen_stacked_beams
 from niriss_tools.pipeline import separate_oned_spectra
 
-root_dir = Path(config["general"].get("root_dir", Path.cwd()))
+root_dir = Path(os.path.expandvars(config["general"].get("root_dir", Path.cwd())))
 field = config["general"].get("field")
 
 field_name = f"{config["general"].get("field_prefix")}-{field}".lower()

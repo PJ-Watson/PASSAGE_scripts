@@ -110,7 +110,7 @@ max_size = 450
 mag_limit = 30
 fit_trace_shift = false
 stack_beams = true
-stack_kwargs = { cluster_beams = true, dbscan_kwargs = { eps = 5, min_samples = 3 }, split_by_fwcpos = true }
+stack_kwargs = { cluster_beams = false, dbscan_kwargs = { eps = 5, min_samples = 3 }, split_by_fwcpos = true }
 
 [extraction.beams]
 min_mask = 0.0
