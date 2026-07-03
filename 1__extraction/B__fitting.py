@@ -514,3 +514,18 @@ if __name__ == "__main__":
             print(f"{mpi_rank=}: {obj_id=} Time taken: {time()-t0}", flush=True)
         except Exception as e:
             print(f"{mpi_rank=}: Fitting failed for {obj_id}: {e}")
+
+    if config.get("line_finding", {}).get("zip_outputs", False):
+
+        from niriss_tools.pipeline.utils import gen_linefinding_outputs
+
+        line_finding_kwargs = config.get("line_finding", {})
+        line_finding_kwargs.pop("zip_outputs")
+        if "new_field_name" not in line_finding_kwargs:
+            line_finding_kwargs["new_field_name"] = field_name[-6:]
+
+        gen_linefinding_outputs(
+            grizli_home_dir=grizli_home_dir,
+            field_name=field_name,
+            **line_finding_kwargs,
+        )
