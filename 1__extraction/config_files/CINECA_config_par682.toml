@@ -128,3 +128,7 @@ protect = true
 verbose = true
 zr = [0.0, 10.0]
 dz = [0.001, 0.0001]
+
+[line_finding]
+zip_outputs = true
+new_field_name = "Par682"
