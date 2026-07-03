@@ -1,0 +1,130 @@
+[general]
+# root_dir = "/media/watsonp/ArchivePJW/backup/data/2026_05_20_parallel_fields"
+# reduction_ver = "2.0.1a"
+# field_prefix = "passage"
+root_dir = "$WORK"
+reduction_ver = "2.0.2"
+field_prefix = "passage"
+proposal_ids = 4681
+field = "par682"
+field_obs_ids = [
+  314,
+  315,
+  316,
+  317,
+  318,
+  319,
+  320,
+  321,
+  322,
+  323,
+  324,
+  325,
+  447,
+  448,
+  449,
+  454,
+  455,
+  456
+]
+low_memory = true
+skip_stage_1 = false
+save_colour_image = true
+process_offline = true
+
+[calibrations]
+crds_ver = 1535
+crds_server_url = "https://crds-serverless-mode.stsci.edu"
+niriss_calib = "CONF/CUSTOM/COMBINE_NGDEEP_A_GRIZLI_{1}_{0}_V1.conf"
+
+[level_1]
+cpu_count = 8
+
+[grizli_processing]
+clean = false
+# master_radec = "/leonardo_work/INA24_C7B12/2.0.2/passage-par682/passage-par682.gaia.radec"
+# prep_args = { oneoverf_kwargs = "none"}
+combine_same_pa = true
+
+[mosaics]
+mosaic_pixel_scale = 0.03
+mosaic_pad = 6
+drizzle_kernel = "square"
+drizzle_pixfrac = 0.8
+# drizzle_kernel = "lanczos3"
+# drizzle_pixfrac = 1.0
+cutout_mosaic_kwargs = {}
+
+[multiband_catalogue]
+run_detection = true
+detection_background = false
+filters = ["f115wn-clear", "f150wn-clear", "f200wn-clear"]
+
+[subtract_diffuse]
+run_subtract = false
+bkg_box_size = 3
+smooth_gauss_std = 1
+min_bkg_thresh = 0.0
+background2d_kwargs = {}
+diffuse_catalogue_kwargs = {}
+
+# # This config runs with an iterative polynomial fit for the contamination model
+# [grism_prep]
+# init_coeffs = [1.0]
+# refine_niter = 3
+# refine_poly_order = 7
+# mask_mosaic_edges = false
+# refine_mag_limits = [14.0,50.0]
+# prelim_mag_limit = 50.0
+# gris_ref_filters = { GR150R = ["F115W", "F150W", "F200W"], GR150C = ["F115W", "F150W", "F200W"] }
+# use_jwst_crds = false
+# model_kwargs = {compute_size = true}
+# pad = 800
+# cpu_count = 8
+
+# This config skips the iterative contamination model and uses a flat f_lambda spectrum instead
+[grism_prep]
+init_coeffs = [1.0]
+refine_niter = 0
+mask_mosaic_edges = false
+refine_mag_limits = [14.0, 50.0]
+prelim_mag_limit = 50.0
+gris_ref_filters = { GR150R = ["F115W", "F150W", "F200W"], GR150C = [
+  "F115W",
+  "F150W",
+  "F200W"
+] }
+use_jwst_crds = false
+model_kwargs = { compute_size = true }
+pad = 800
+cpu_count = 8
+
+[extraction]
+cpu_count = 4
+split_chunks = false
+chunk_size = 5
+recalculate_size = true
+beam_size = 50  # Not used if `recalculate_size = true`
+min_size = 15
+max_size = 450
+mag_limit = 30
+fit_trace_shift = false
+stack_beams = true
+stack_kwargs = { cluster_beams = false, dbscan_kwargs = { eps = 5, min_samples = 3 }, split_by_fwcpos = true }
+
+[extraction.beams]
+min_mask = 0.0
+min_sens = 0.0
+fcontam = 0.2
+sys_err = 0.0
+min_overlap = 0.25
+
+[extraction.fit_params]
+pline = { kernel = "square", pixfrac = 1.0, pixscale = 0.06, size = 3 }
+include_photometry = false
+use_phot_obj = false
+save_figures = true
+protect = true
+verbose = true
+zr = [0.0, 10.0]
+dz = [0.001, 0.0001]

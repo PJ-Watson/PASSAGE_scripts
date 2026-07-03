@@ -1,0 +1,18 @@
+# Micromamba environment file
+
+name: niriss
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - python=3.13
+  - pip
+  - numpy>=2.0.0
+  - mpi4py
+  - pip:
+    - grizli[jwst,aws]@git+https://github.com/PJ-Watson/grizli@new_workflow
+    - niriss-tools@git+https://github.com/PJ-Watson/niriss-tools
+    - astrocolour@git+https://github.com/PJ-Watson/astrocolour
+    - scipy>=1.18
