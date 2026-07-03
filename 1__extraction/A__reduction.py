@@ -364,7 +364,7 @@ if __name__ == "__main__":
 
             grp = auto_script.grism_prep(field_root=field_name, **kwargs)
 
-    exit()
+    # exit()
 
     # Ensure that all processed files are correctly linked to the
     # Extractions directory
@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
     flt_files = [str(s) for s in Path.cwd().glob("*GrismFLT.fits")][:]
 
-    if mpi_rank == 0:
+    if (mpi_rank == 0) and (config["general"].get("extract_examples", False)):
 
         # Some examples. If you want to quickly test the reduction,
         # put some IDs and redshift guesses here.

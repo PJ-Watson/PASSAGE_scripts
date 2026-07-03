@@ -22,10 +22,15 @@ The second is to run the `offline_steps.py` script, passing the same configurati
 
 ### A: Reduction
 
+This takes the `*uncal.fits` files from MAST, and returns the `*GrismFLT.fits` used by `grizli`.
+
 ### B: Fitting
+
+This runs the beam extraction and redshift fitting. Recommended to run this using `mpirun` to take advantage of parallel processing.
 
 ### C: Forced Extraction (Optional)
 
+TBD.
 
 ## Stage 2: Multiregion Processing
 
