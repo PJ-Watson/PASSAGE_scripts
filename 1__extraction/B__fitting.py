@@ -529,3 +529,16 @@ if __name__ == "__main__":
             field_name=field_name,
             **line_finding_kwargs,
         )
+
+    if config.get("pygcg", {}).get("zip_outputs", False):
+
+        from niriss_tools.pipeline.utils import gen_pygcg_outputs
+
+        pygcg_kwargs = config.get("line_finding", {})
+        pygcg_kwargs.pop("zip_outputs")
+
+        gen_pygcg_outputs(
+            grizli_home_dir=grizli_home_dir,
+            field_name=field_name,
+            **pygcg_kwargs,
+        )

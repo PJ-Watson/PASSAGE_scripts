@@ -132,3 +132,6 @@ dz = [0.001, 0.0001]
 [line_finding]
 zip_outputs = true
 new_field_name = "Par682"
+
+[pygcg]
+zip_ouputs = true
