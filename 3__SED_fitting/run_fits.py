@@ -166,6 +166,7 @@ if __name__ == "__main__":
                 },
                 line_cat=bagpipes_input_emlines_cat,
                 id_colname="id_photcat",
+                min_flux=1e-20,
             )
             bagpipes_input_cat = bagpipes_input_cat[
                 np.isin(
@@ -278,7 +279,7 @@ if __name__ == "__main__":
             full_cat.write(cat_path_1, overwrite=True)
             full_cat.write(cat_path_2, overwrite=True)
 
-            print(f"Finished for {cat_ver=}.")
+            print(f"Finished for {fit_ver=}.")
 
         full_dir_archive = upload_dir / f"full_dir_archive_{fit_ver}.zip"
 
@@ -294,3 +295,5 @@ if __name__ == "__main__":
             for f in filt_dir.glob("*"):
                 if not (zip_path / f.relative_to(out_base_dir)).exists():
                     myzip.write(f, f.relative_to(out_base_dir))
+
+        print(f"Finished adding to archive.")

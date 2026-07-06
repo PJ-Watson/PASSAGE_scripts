@@ -483,8 +483,6 @@ def prepare_catalogues(
 
             filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
 
-            # print (c, cat_filt)
-
             phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[c]
             try:
                 phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
@@ -788,7 +786,6 @@ def reformat_lines_list(
 
                 print("Reading from .tar.gz")
                 path_parts = str(orig_path).split(".tar.gz/")
-                print(f"{path_parts[0]=}")
                 with tarfile.open(f"{path_parts[0]}.tar.gz", "r") as myzip:
                     with myzip.extractfile(path_parts[-1]) as f:
                         orig_tab = Table.read(
