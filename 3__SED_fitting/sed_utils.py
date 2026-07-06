@@ -76,6 +76,17 @@ def check_cigale_filter(filter_name: str) -> bool:
     return len(filters) > 0
 
 
+generic_name_mapping = {
+    # NIRISS
+    "f115wn": "jwst_niriss_f115w",
+    "f150wn": "jwst_niriss_f150w",
+    "f200wn": "jwst_niriss_f200w",
+    # SVO
+    "f475w": "HST_WFC3_UVIS1.F475W",
+    "f625w": "HST_WFC3_UVIS1.F625W",
+    "f814w": "HST_ACS_WFC.F814W",
+}
+
 cosmosweb_name_mapping = {
     # NIRISS
     "f115wn": "jwst_niriss_f115w",
@@ -188,7 +199,6 @@ inv_cosmos2020 = {v: k for k, v in cosmos2020_name_mapping.items()}
 
 pipes_to_cigale = {v: k for k, v in cigale_name_mapping.items()}
 
-import zipfile
 from pathlib import Path
 
 import astropy.units as u
@@ -708,8 +718,8 @@ GRIZLI_TO_CLOUDY_NAMES_ONLY = {k: v["cloudy"] for k, v in GRIZLI_TO_CLOUDY_MAP.i
 
 def reformat_lines_list(
     orig_path: Path,
-    keep_ids: ArrayLike,
-    out_name: str | None,
+    keep_ids: ArrayLike | None = None,
+    out_name: str | None = None,
     out_dir: Path | None = None,
     overwrite: bool = False,
     line_names_map: dict = LINEFINDING_TO_GRIZLI_NAMES_MAP,
@@ -752,32 +762,49 @@ def reformat_lines_list(
     if out_dir is None:
         out_dir = orig_path.parent
 
-    reformat_path = out_dir / f"{orig_path.stem}_reformat.fits"
-
     if out_name is None:
         out_name = f"{orig_path.stem}_reformat.fits"
     if (out_dir / out_name).is_file() and not overwrite:
         return out_dir / out_name
     else:
-        if ".zip/" in str(orig_path):
-            print("Reading from .zip")
-            path_parts = str(orig_path).split(".zip/")
-            with zipfile.ZipFile(f"{path_parts[0]}.zip", "r") as myzip:
-                with myzip.open(path_parts[-1]) as f:
-                    orig_tab = Table.read(
-                        f,
-                        format="ascii.csv",
-                        delimiter="\\s",
-                        comment="\\s*#",
-                    )
-        else:
-            orig_tab = Table.read(
-                orig_path,
-                format="ascii.csv",
-                delimiter="\\s",
-                comment="\\s*#",
-            )
-        orig_tab.write(out_dir / f"{orig_path.stem}.fits", overwrite=True)
+        try:
+            orig_tab = Table.read(out_dir / f"{orig_path.stem}.fits")
+        except:
+            if ".zip/" in str(orig_path):
+                import zipfile
+
+                print("Reading from .zip")
+                path_parts = str(orig_path).split(".zip/")
+                with zipfile.ZipFile(f"{path_parts[0]}.zip", "r") as myzip:
+                    with myzip.open(path_parts[-1]) as f:
+                        orig_tab = Table.read(
+                            f,
+                            format="ascii.csv",
+                            delimiter="\\s",
+                            comment="\\s*#",
+                        )
+            elif ".tar.gz/" in str(orig_path):
+                import tarfile
+
+                print("Reading from .tar.gz")
+                path_parts = str(orig_path).split(".tar.gz/")
+                print(f"{path_parts[0]=}")
+                with tarfile.open(f"{path_parts[0]}.tar.gz", "r") as myzip:
+                    with myzip.extractfile(path_parts[-1]) as f:
+                        orig_tab = Table.read(
+                            f,
+                            format="ascii.csv",
+                            delimiter="\\s",
+                            comment="\\s*#",
+                        )
+            else:
+                orig_tab = Table.read(
+                    orig_path,
+                    format="ascii.csv",
+                    delimiter="\\s",
+                    comment="\\s*#",
+                )
+            orig_tab.write(out_dir / f"{orig_path.stem}.fits", overwrite=True)
 
         # Strip out any commented lines before writing reformatted table
         try:
@@ -787,9 +814,12 @@ def reformat_lines_list(
 
         orig_tab["id_photcat"] = orig_tab["objid"].astype(int)
 
-        orig_tab = orig_tab[np.isin(orig_tab["id_photcat"], keep_ids)]
+        if keep_ids is not None:
+            orig_tab = orig_tab[np.isin(orig_tab["id_photcat"], keep_ids)]
 
-        reformat_tab = orig_tab["id_photcat", "chisq", "fwhm", "fwhm_error"]
+        reformat_tab = orig_tab[
+            "id_photcat", "redshift", "redshift_error", "chisq", "fwhm", "fwhm_error"
+        ]
 
         for lf, g in line_names_map.items():
             if g not in line_names:
@@ -845,8 +875,8 @@ def mask_catalogue(
 
 def reformat_grizli_speccat(
     orig_path: Path,
-    keep_ids: ArrayLike,
-    out_name: str | None,
+    keep_ids: ArrayLike | None = None,
+    out_name: str | None = None,
     out_dir: Path | None = None,
     overwrite: bool = False,
     line_names: list = DEFAULT_FIT_LINES,
@@ -884,8 +914,6 @@ def reformat_grizli_speccat(
     if out_dir is None:
         out_dir = orig_path.parent
 
-    reformat_path = out_dir / f"{orig_path.stem}_reformat.fits"
-
     if out_name is None:
         out_name = f"{orig_path.stem}_reformat.fits"
     if (out_dir / out_name).is_file() and not overwrite:
@@ -895,9 +923,10 @@ def reformat_grizli_speccat(
         orig_tab = Table.read(orig_path)
 
         orig_tab["id_photcat"] = orig_tab["id"].astype(int)
-        orig_tab = orig_tab[np.isin(orig_tab["id_photcat"], keep_ids)]
+        if keep_ids is not None:
+            orig_tab = orig_tab[np.isin(orig_tab["id_photcat"], keep_ids)]
 
-        reformat_tab = orig_tab["id_photcat", "chimin", "dof", "z_map"]
+        reformat_tab = orig_tab["id_photcat", "chimin", "dof", "z_map", "zwidth1"]
 
         for g in line_names:
             not_in_filter = np.logical_not(
@@ -977,3 +1006,227 @@ def correct_pipes_params(
         if isinstance(v, list) and np.logical_not(np.isin(k, list_keys)):
             current_dict[k] = tuple(v)
     return current_dict
+
+
+def prepare_catalogues(
+    config: dict,
+    passage_dir: Path,
+    filt_dir: Path,
+    fit_ver: str = "v1.2.0",
+    field: str = "Par682",
+) -> None:
+    """
+    Prepare the catalogues for SED fitting.
+
+    Parameters
+    ----------
+    config : dict
+        The dictionary storing the configuration used for this iteration
+        of SED fitting.
+    passage_dir : Path
+        The directory containing all existing phot/spec cats in
+        field-specific subdirectories.
+    filt_dir : Path
+        The directory storing the transmission curves for the filters in
+        the photometric catalogues.
+    fit_ver : str, optional
+        The string identifying the semantic version of the fit, by default
+        `"v1.1.0"`.
+    field : str, optional
+        The string identifying the PASSAGE field to fit, by default
+        `"Par028"`.
+    """
+
+    # Check directories exist (but if not, things are likely to fail anyway)
+    passage_dir.mkdir(exist_ok=True, parents=True)
+    filt_dir.mkdir(exist_ok=True, parents=True)
+
+    try:
+        passage_matched_phot = Table.read(
+            passage_dir / field / f"{field}_matched_z_phot_{fit_ver}.fits"
+        )
+    except:
+
+        passage_z_cat_path = (
+            passage_dir
+            / field
+            / config["catalogues"]
+            .get("z_cat_name_template", "{field}_speccat.fits")
+            .format(field=field)
+        )
+
+        # By default, assume this is a regular Table
+        try:
+            passage_z_cat = Table.read(passage_z_cat_path)
+        except:
+            # Check if it's a linefinding catalogue
+            reformat_kwargs = dict(
+                out_dir=passage_dir / field,
+                line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
+            )
+            try:
+                passage_z_cat = Table.read(
+                    reformat_lines_list(passage_z_cat_path, **reformat_kwargs)
+                )
+            except:
+                # Check if it's a grizli speccat
+                passage_z_cat = Table.read(
+                    reformat_grizli_speccat(passage_z_cat_path, **reformat_kwargs)
+                )
+
+        z_cat = Table()
+        for k, v in (
+            config["catalogues"]
+            .get(
+                "z_cat_colnames",
+                dict(id="id", zspec="zspec", zspec_err="zspec_err"),
+            )
+            .items()
+        ):
+            z_cat[k] = passage_z_cat[v]
+
+        photcat_files = list(
+            (passage_dir / field).glob(
+                config["catalogues"]
+                .get("photcat_name_template", "{field}_photcat.fits")
+                .format(field=field)
+            )
+        )
+        photcat_files.sort(reverse=True)
+        field_phot = Table.read(photcat_files[0])
+
+        field_phot["id"] = field_phot["id"].astype(int)
+
+        z_cat["id"] = z_cat["id"].astype(int)
+
+        passage_matched_phot = join(
+            z_cat,
+            field_phot,
+            keys="id",
+            # table_names=["huberty", "photcat"],
+        )
+        passage_matched_phot.rename_column("id", "id_photcat")
+
+        passage_matched_phot.write(
+            passage_dir / field / f"{field}_matched_z_phot_{fit_ver}.fits"
+        )
+
+    # exit()
+
+    try:
+        phot_cat = Table.read(
+            passage_dir / field / f"{field}_bagpipes_input_{fit_ver}.fits"
+        )
+        filter_list = np.loadtxt(
+            passage_dir / field / f"{field}_filter_list_{fit_ver}.txt",
+            dtype=str,
+        )
+    except:
+        passage_matched_phot["id_photcat"] = passage_matched_phot["id_photcat"].astype(
+            int
+        )
+        passage_matched_phot.rename_columns(
+            ["ra", "dec"], ["ra_photcat", "dec_photcat"]
+        )
+
+        phot_cat = passage_matched_phot[
+            "id_photcat",
+            "zspec",
+            "zspec_err",
+            "ra_photcat",
+            "dec_photcat",
+            "flux_auto",
+        ]
+        filter_list = []
+
+        for filt in ["f115wn", "f150wn", "f200wn"]:
+            if f"{filt}_flux_auto" in passage_matched_phot.colnames:
+                cat_filt = generic_name_mapping[filt]
+                filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
+
+                phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[f"{filt}_flux_auto"]
+                phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
+                    f"{filt}_fluxerr_auto"
+                ]
+
+        for filt in ["f475w", "f625w", "f814w"]:
+            if f"{filt}_flux_iso_corr" in passage_matched_phot.colnames:
+                cat_filt = generic_name_mapping[filt]
+                filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
+
+                phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[
+                    f"{filt}_flux_iso_corr"
+                ]
+                phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
+                    f"{filt}_fluxerr_iso_corr"
+                ]
+
+        # uniq, uniq_ct = np.unique(phot_cat[cosmos_id_name], return_counts=True)
+        # phot_cat["flux_scale"] = 1.0
+        # for dup_id in uniq[uniq_ct > 1]:
+        #     if dup_id == -99:
+        #         continue
+        #     print(f"Duplicate COSMOS ID : {dup_id}")
+        #     total_flux = np.nansum(
+        #         phot_cat[phot_cat[cosmos_id_name] == dup_id]["flux_auto"]
+        #     )
+        #     for idx in np.argwhere(phot_cat[cosmos_id_name] == dup_id):
+        #         flux_scale = phot_cat["flux_auto"][idx] / total_flux
+        #         for c in phot_cat.colnames[7:]:
+        #             if ("wn_" not in c) and (("_flux" in c) or ("_err" in c)):
+        #                 phot_cat[c][idx] *= flux_scale
+        #         phot_cat["flux_scale"][idx] = flux_scale
+
+        phot_cat.write(passage_dir / field / f"{field}_bagpipes_input_{fit_ver}.fits")
+
+        np.savetxt(
+            passage_dir / field / f"{field}_filter_list_{fit_ver}.txt",
+            filter_list,
+            fmt="%s",
+        )
+
+    extcorr_path = (
+        passage_dir / field / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"
+    )
+    try:
+        extcorr_cat = Table.read(extcorr_path)
+    except:
+        extcorr_cat = apply_dust_correction(phot_cat, filter_list)
+        extcorr_cat.write(extcorr_path)
+
+    if config["general"].get("fit_emlines", False):
+        bagpipes_emlines_path = (
+            passage_dir / field / f"{field}_bagpipes_input_emlines_{fit_ver}.fits"
+        )
+        try:
+            bagpipes_emlines_cat = Table.read(bagpipes_emlines_path)
+        except:
+
+            extcorr_cat = Table.read(extcorr_path)
+
+            reformat_kwargs = dict(
+                keep_ids=np.asarray(extcorr_cat["id_photcat"]),
+                out_name=f"{field}_bagpipes_input_emlines_{fit_ver}.fits",
+                out_dir=passage_dir / field,
+                line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
+            )
+            if config["general"].get("emlines_is_grizli", True):
+                print("Looking for grizli speccat")
+                reformat_grizli_speccat(
+                    passage_dir
+                    / field
+                    / config["catalogues"]
+                    .get("emline_cat_name_template", "{field}_speccat.fits")
+                    .format(field=field),
+                    **reformat_kwargs,
+                )
+            else:
+                print("Looking for linefinding speccat")
+                reformat_lines_list(
+                    passage_dir
+                    / field
+                    / config["catalogues"]
+                    .get("emline_cat_name_template", "{field}lines_catalog_recon.dat")
+                    .format(field=field),
+                    **reformat_kwargs,
+                )
