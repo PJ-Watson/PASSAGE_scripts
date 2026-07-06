@@ -65,7 +65,7 @@ line_names = ["SII", "Ha", "OIII", "Hb", "OII", "NeIII-3867"]
 # PASSAGE redshift catalogue name
 # passage_z_cat_name = "passage_cosmos_redshift_catalog_v2.dat"
 z_cat_name_template = "{field}_output_farhan.tar.gz/{field}_output_farhan/{field}lines_catalog_farhan.dat"
-z_cat_colnames = {id = "objid", zspec = "redshift", zspec_err = "redshift_error"}
+z_cat_colnames = {id = "id_photcat", zspec = "redshift", zspec_err = "redshift_error"}
 # photcat name format
 photcat_name_template = "{field}_photcat*.fits"
 # PASSAGE emission line catalogue name format

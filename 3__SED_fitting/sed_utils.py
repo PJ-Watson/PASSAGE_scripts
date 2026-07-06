@@ -1001,7 +1001,6 @@ def prepare_catalogues(
     config: dict,
     passage_dir: Path,
     filt_dir: Path,
-    ref_cats_dir: Path | None = None,
     fit_ver: str = "v1.2.0",
     field: str = "Par682",
 ) -> None:
@@ -1016,8 +1015,6 @@ def prepare_catalogues(
     passage_dir : Path
         The directory containing all existing phot/spec cats in
         field-specific subdirectories.
-    ref_cats_dir : Path
-        The directory containing the reference COSMOS2020/Web catalogues.
     filt_dir : Path
         The directory storing the transmission curves for the filters in
         the photometric catalogues.
@@ -1027,11 +1024,6 @@ def prepare_catalogues(
     field : str, optional
         The string identifying the PASSAGE field to fit, by default
         `"Par028"`.
-    cat_ver : str, optional
-        The version of the reference catalogue to use, by default `"web"`.
-    cosmos_id_name : str, optional
-        The column ID matching the ID in the reference catalogue, by
-        default `"cosmoswebid"`.
     """
 
     # Check directories exist (but if not, things are likely to fail anyway)
@@ -1040,185 +1032,75 @@ def prepare_catalogues(
 
     try:
         passage_matched_phot = Table.read(
-            passage_dir / field / f"{field}_matched_phot_{fit_ver}.fits"
+            passage_dir / field / f"{field}_matched_z_phot_{fit_ver}.fits"
         )
     except:
 
+        passage_z_cat_path = (
+            passage_dir
+            / field
+            / config["catalogues"]
+            .get("z_cat_name_template", "{field}_speccat.fits")
+            .format(field=field)
+        )
+
+        # By default, assume this is a regular Table
         try:
-            passage_matched = Table.read(
-                passage_dir
-                / "cats"
-                / f"passage_matched_phot_{fit_ver}_cosmos{cat_ver}.fits"
-            )
+            passage_z_cat = Table.read(passage_z_cat_path)
         except:
-            passage_z_cat_path = (
-                passage_dir
-                / field
-                / config["catalogues"]
-                .get("z_cat_name_template", "{field}_speccat.fits")
-                .format(field=field)
+            # Check if it's a linefinding catalogue
+            reformat_kwargs = dict(
+                out_dir=passage_dir / field,
+                line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
             )
-            print(passage_z_cat_path)
-            print(
-                passage_dir
-                / field
-                / config["catalogues"]
-                .get("z_cat_name_template", "{field}_speccat.fits")
-                .format(field=field)
-            )
-
-            # By default, assume this is a regular Table
             try:
-                passage_z_cat = Table.read(passage_z_cat_path)
+                passage_z_cat = Table.read(
+                    reformat_lines_list(passage_z_cat_path, **reformat_kwargs)
+                )
             except:
-                # Check if it's a linefinding catalogue
-                reformat_kwargs = dict(
-                    out_dir=passage_dir / field,
-                    line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
+                # Check if it's a grizli speccat
+                passage_z_cat = Table.read(
+                    reformat_grizli_speccat(passage_z_cat_path, **reformat_kwargs)
                 )
-                try:
-                    passage_z_cat = reformat_lines_list(
-                        passage_z_cat_path, **reformat_kwargs
-                    )
-                except:
-                    # Check if it's a grizli speccat
-                    passage_z_cat = reformat_grizli_speccat(
-                        passage_z_cat_path, **reformat_kwargs
-                    )
 
-            # passage_z_cat
-            z_cat = Table()
-            for k, v in (
-                config["catalogues"]
-                .get(
-                    "z_cat_colnames",
-                    dict(id="id", zspec="zspec", zspec_err="zspec_err"),
-                )
-                .items()
-            ):
-                z_cat[k] = passage_z_cat[v]
-            # passage_z_cat = passage_z_cat[config["catalogues"].get("z_cat_colnames")]#
-
-            print(z_cat)
-            exit()
-
-            # passage_z_cat = Table.read(
-            #     passage_dir
-            #     / "cats"
-            #     / config["catalogues"].get(
-            #         "passage_cat_name", "passage_cosmos_redshift_catalog_v2.dat"
-            #     ),
-            #     format="ascii.tab",
-            # )[
-            #     "id",
-            #     "ra",
-            #     "dec",
-            #     "field",
-            #     "field_id",
-            #     "zbest",
-            #     "zbesterr",
-            #     "cosmoswebid",
-            # ]
-
-            # if cat_ver == "2020":
-
-            #     cosmos2020_cat = Table.read(
-            #         ref_cats_dir
-            #         / config["catalogues"].get(
-            #             "2020_cat_name", "COSMOS2020_FARMER_R1_v2.2_p3.fits"
-            #         ),
-            #         hdu=config["catalogues"].get("2020_phot_hdu", "PHASE3CATALOG"),
-            #     )
-
-            #     passage_coords = SkyCoord(
-            #         ra=passage_z_cat["ra"],
-            #         dec=passage_z_cat["dec"],
-            #         unit="deg",
-            #     )
-            #     cosmos2020_coords = SkyCoord(
-            #         ra=cosmos2020_cat["ALPHA_J2000"],
-            #         dec=cosmos2020_cat["DELTA_J2000"],
-            #     )
-
-            #     idx, d2d, d3d = passage_coords.match_to_catalog_sky(cosmos2020_coords)
-            #     sep_constraint = d2d < max_sep
-            #     passage_matches = passage_coords[sep_constraint]
-            #     cosmos2020_matches = cosmos2020_cat[idx[sep_constraint]]
-            #     cosmos2020_matches.rename_column("ID", "cosmos2020farmerid")
-            #     cosmos2020_matches["passageid"] = passage_z_cat["id"][sep_constraint]
-            #     cosmos2020_matches.rename_columns(
-            #         cosmos2020_matches.colnames,
-            #         [c.lower() for c in cosmos2020_matches.colnames],
-            #     )
-
-            #     passage_matched = join(
-            #         passage_z_cat,
-            #         cosmos2020_matches,
-            #         keys_left="id",
-            #         keys_right="passageid",
-            #         join_type="left",
-            #         keep_order=True,
-            #     )
-
-            # else:
-            #     cosmos_cat = Table.read(
-            #         ref_cats_dir
-            #         / config["catalogues"].get(
-            #             "web_cat_name", "COSMOSWeb_mastercatalog_v1.1.fits"
-            #         ),
-            #         hdu=config["catalogues"].get(
-            #             "web_phot_hdu", "PHOTOMETRY HOTCOLD AND SE++"
-            #         ),
-            #     )
-            #     passage_z_cat["cosmoswebid"] = passage_z_cat["cosmoswebid"].astype(int)
-
-            #     cosmos_cat.rename_columns(
-            #         ["id", "ra", "dec"],
-            #         ["cosmoswebid", "ra_cosmosweb", "dec_cosmosweb"],
-            #     )
-
-            #     passage_matched = join(
-            #         passage_z_cat,
-            #         cosmos_cat,
-            #         keys="cosmoswebid",
-            #         keep_order=True,
-            #         join_type="left",
-            #     )
-
-            passage_matched.write(
-                passage_dir
-                / "cats"
-                / f"passage_matched_phot_{fit_ver}_cosmos{cat_ver}.fits"
+        z_cat = Table()
+        for k, v in (
+            config["catalogues"]
+            .get(
+                "z_cat_colnames",
+                dict(id="id", zspec="zspec", zspec_err="zspec_err"),
             )
-
-        passage_matched = passage_matched[passage_matched["field"] == field]
+            .items()
+        ):
+            z_cat[k] = passage_z_cat[v]
 
         photcat_files = list(
             (passage_dir / field).glob(
                 config["catalogues"]
                 .get("photcat_name_template", "{field}_photcat.fits")
-                .format(field)
+                .format(field=field)
             )
         )
         photcat_files.sort(reverse=True)
         field_phot = Table.read(photcat_files[0])
 
-        field_phot["id_photcat"] = field_phot["id"].astype(int)
-        field_phot.remove_column("id")
+        field_phot["id"] = field_phot["id"].astype(int)
 
-        passage_matched["id_photcat"] = passage_matched["field_id"].astype(int)
-        passage_matched.rename_column("id", "id_huberty")
+        z_cat["id"] = z_cat["id"].astype(int)
 
         passage_matched_phot = join(
-            passage_matched,
+            z_cat,
             field_phot,
-            keys="id_photcat",
-            table_names=["huberty", "photcat"],
+            keys="id",
+            # table_names=["huberty", "photcat"],
         )
+        passage_matched_phot.rename_column("id", "id_photcat")
 
         passage_matched_phot.write(
-            passage_dir / field / f"{field}_matched_phot_{fit_ver}_cosmos{cat_ver}.fits"
+            passage_dir / field / f"{field}_matched_z_phot_{fit_ver}.fits"
         )
+
+    exit()
 
     try:
         phot_cat = Table.read(
