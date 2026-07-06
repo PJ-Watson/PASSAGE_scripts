@@ -112,6 +112,8 @@ if __name__ == "__main__":
             else:
                 prepared = None
 
+            exit()
+
             prepared = comm.bcast(prepared, root=0)
 
             if not prepared:

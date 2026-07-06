@@ -76,6 +76,17 @@ def check_cigale_filter(filter_name: str) -> bool:
     return len(filters) > 0
 
 
+generic_name_mapping = {
+    # NIRISS
+    "f115wn": "jwst_niriss_f115w",
+    "f150wn": "jwst_niriss_f150w",
+    "f200wn": "jwst_niriss_f200w",
+    # SVO
+    "f475w": "HST_WFC3_UVIS1.F475W",
+    "f625w": "HST_WFC3_UVIS1.F625W",
+    "f814w": "HST_ACS_WFC.F814W",
+}
+
 cosmosweb_name_mapping = {
     # NIRISS
     "f115wn": "jwst_niriss_f115w",
@@ -1100,106 +1111,82 @@ def prepare_catalogues(
             passage_dir / field / f"{field}_matched_z_phot_{fit_ver}.fits"
         )
 
-    exit()
+    # exit()
 
     try:
         phot_cat = Table.read(
-            passage_dir
-            / field
-            / f"{field}_bagpipes_input_{fit_ver}_cosmos{cat_ver}.fits"
+            passage_dir / field / f"{field}_bagpipes_input_{fit_ver}.fits"
         )
         filter_list = np.loadtxt(
-            passage_dir / field / f"{field}_filter_list_{fit_ver}_cosmos{cat_ver}.txt",
+            passage_dir / field / f"{field}_filter_list_{fit_ver}.txt",
             dtype=str,
         )
     except:
         passage_matched_phot["id_photcat"] = passage_matched_phot["id_photcat"].astype(
             int
         )
+        passage_matched_phot.rename_columns(
+            ["ra", "dec"], ["ra_photcat", "dec_photcat"]
+        )
 
         phot_cat = passage_matched_phot[
             "id_photcat",
-            "id_huberty",
-            "zbest",
-            "zbesterr",
+            "zspec",
+            "zspec_err",
             "ra_photcat",
             "dec_photcat",
             "flux_auto",
         ]
-        phot_cat[cosmos_id_name] = passage_matched_phot[cosmos_id_name]
         filter_list = []
 
-        for c in passage_matched_phot.colnames:
-            # Drop IRAC bands in Cosmos-web fits
-            if ("irac" in c.lower()) and (cat_ver == "web"):
-                continue
-            if c.endswith("_flux_auto"):
-                cat_filt = c.removesuffix("_flux_auto") + "n"
-                cat_filt = cosmosweb_name_mapping[cat_filt]
-            elif c.startswith("flux_model_"):
-                cat_filt = c.removeprefix("flux_model_")
-                cat_filt = cosmosweb_name_mapping[cat_filt]
-            elif (
-                c.endswith("_flux")
-                and not (c.endswith("wn_flux"))
-                and ("splash" not in c)
-            ):
-                cat_filt = c.removesuffix("_flux")
-                cat_filt = cosmos2020_name_mapping[cat_filt]
-            else:
-                continue
+        for filt in ["f115wn", "f150wn", "f200wn"]:
+            if f"{filt}_flux_auto" in passage_matched_phot.colnames:
+                cat_filt = generic_name_mapping[filt]
+                filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
 
-            filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
-
-            # print (c, cat_filt)
-
-            phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[c]
-            try:
+                phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[f"{filt}_flux_auto"]
                 phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
-                    f"flux_err-cal_model_{c.removeprefix("flux_model_")}"
+                    f"{filt}_fluxerr_auto"
                 ]
-            except:
-                try:
-                    phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
-                        f"{c.removesuffix("_flux")}_fluxerr"
-                    ]
-                except:
-                    phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
-                        f"{c.removesuffix("_flux_auto")}_fluxerr_auto"
-                    ]
 
-        uniq, uniq_ct = np.unique(phot_cat[cosmos_id_name], return_counts=True)
-        phot_cat["flux_scale"] = 1.0
-        for dup_id in uniq[uniq_ct > 1]:
-            if dup_id == -99:
-                continue
-            print(f"Duplicate COSMOS ID : {dup_id}")
-            total_flux = np.nansum(
-                phot_cat[phot_cat[cosmos_id_name] == dup_id]["flux_auto"]
-            )
-            for idx in np.argwhere(phot_cat[cosmos_id_name] == dup_id):
-                flux_scale = phot_cat["flux_auto"][idx] / total_flux
-                for c in phot_cat.colnames[7:]:
-                    if ("wn_" not in c) and (("_flux" in c) or ("_err" in c)):
-                        phot_cat[c][idx] *= flux_scale
-                phot_cat["flux_scale"][idx] = flux_scale
+        for filt in ["f475w", "f625w", "f814w"]:
+            if f"{filt}_flux_iso_corr" in passage_matched_phot.colnames:
+                cat_filt = generic_name_mapping[filt]
+                filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
 
-        phot_cat.write(
-            passage_dir
-            / field
-            / f"{field}_bagpipes_input_{fit_ver}_cosmos{cat_ver}.fits"
-        )
+                phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[
+                    f"{filt}_flux_iso_corr"
+                ]
+                phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
+                    f"{filt}_fluxerr_iso_corr"
+                ]
+
+        # uniq, uniq_ct = np.unique(phot_cat[cosmos_id_name], return_counts=True)
+        # phot_cat["flux_scale"] = 1.0
+        # for dup_id in uniq[uniq_ct > 1]:
+        #     if dup_id == -99:
+        #         continue
+        #     print(f"Duplicate COSMOS ID : {dup_id}")
+        #     total_flux = np.nansum(
+        #         phot_cat[phot_cat[cosmos_id_name] == dup_id]["flux_auto"]
+        #     )
+        #     for idx in np.argwhere(phot_cat[cosmos_id_name] == dup_id):
+        #         flux_scale = phot_cat["flux_auto"][idx] / total_flux
+        #         for c in phot_cat.colnames[7:]:
+        #             if ("wn_" not in c) and (("_flux" in c) or ("_err" in c)):
+        #                 phot_cat[c][idx] *= flux_scale
+        #         phot_cat["flux_scale"][idx] = flux_scale
+
+        phot_cat.write(passage_dir / field / f"{field}_bagpipes_input_{fit_ver}.fits")
 
         np.savetxt(
-            passage_dir / field / f"{field}_filter_list_{fit_ver}_cosmos{cat_ver}.txt",
+            passage_dir / field / f"{field}_filter_list_{fit_ver}.txt",
             filter_list,
             fmt="%s",
         )
 
     extcorr_path = (
-        passage_dir
-        / field
-        / f"{field}_bagpipes_input_{fit_ver}_cosmos{cat_ver}_extcorr.fits"
+        passage_dir / field / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"
     )
     try:
         extcorr_cat = Table.read(extcorr_path)
@@ -1209,9 +1196,7 @@ def prepare_catalogues(
 
     if config["general"].get("fit_emlines", False):
         bagpipes_emlines_path = (
-            passage_dir
-            / field
-            / f"{field}_bagpipes_input_emlines_{fit_ver}_cosmos{cat_ver}.fits"
+            passage_dir / field / f"{field}_bagpipes_input_emlines_{fit_ver}.fits"
         )
         try:
             bagpipes_emlines_cat = Table.read(bagpipes_emlines_path)
@@ -1221,7 +1206,7 @@ def prepare_catalogues(
 
             reformat_kwargs = dict(
                 keep_ids=np.asarray(extcorr_cat["id_photcat"]),
-                out_name=f"{field}_bagpipes_input_emlines_{fit_ver}_cosmos{cat_ver}.fits",
+                out_name=f"{field}_bagpipes_input_emlines_{fit_ver}.fits",
                 out_dir=passage_dir / field,
                 line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
             )
