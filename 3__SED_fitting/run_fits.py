@@ -94,21 +94,21 @@ if __name__ == "__main__":
         for field in fields:
 
             if rank == 0:
-                try:
-                    sed_utils.prepare_catalogues(
-                        config,
-                        passage_dir,
-                        ref_cats_dir,
-                        filt_dir,
-                        fit_ver=fit_ver,
-                        field=field,
-                        cat_ver=cat_ver,
-                        cosmos_id_name=cosmos_id_name,
-                    )
-                    prepared = True
-                except:
-                    print(f"Failed to prepare catalogues for {field}", flush=True)
-                    prepared = False
+                # try:
+                sed_utils.prepare_catalogues(
+                    config,
+                    passage_dir,
+                    # ref_cats_dir,
+                    filt_dir,
+                    fit_ver=fit_ver,
+                    field=field,
+                    # cat_ver=cat_ver,
+                    # cosmos_id_name=cosmos_id_name,
+                )
+                prepared = True
+                # except:
+                print(f"Failed to prepare catalogues for {field}", flush=True)
+                prepared = False
             else:
                 prepared = None
 
