@@ -212,129 +212,85 @@ if __name__ == "__main__":
         if MPI_avail:
             comm.Barrier()
 
-    #     if rank == 0:
+        if mpi_rank == 0:
 
-    #         if not (
-    #             passage_dir / field / f"{field}_full_{fit_ver}_cosmos{cat_ver}.fits"
-    #         ).is_file():
+            if not (passage_dir / field / f"{field}_full_{fit_ver}.fits").is_file():
 
-    #             pipes_cat = Table.read(pipes_dir / "cats" / f"{run_name}.fits")
-    #             pipes_cat.rename_column("#ID", "id_photcat")
-    #             pipes_cat["id_photcat"] = pipes_cat["id_photcat"].astype(int)
+                pipes_cat = Table.read(pipes_dir / "cats" / f"{run_name}.fits")
+                pipes_cat.rename_column("#ID", "id_photcat")
+                pipes_cat["id_photcat"] = pipes_cat["id_photcat"].astype(int)
 
-    #             pipes_cat.write(
-    #                 passage_dir / field / f"{run_name}.fits", overwrite=True
-    #             )
+                pipes_cat.write(
+                    passage_dir / field / f"{run_name}.fits", overwrite=True
+                )
 
-    #             try:
-    #                 bagpipes_input_cat = join(
-    #                     bagpipes_input_cat,
-    #                     bagpipes_input_emlines_cat,
-    #                     keys="id_photcat",
-    #                     join_type="left",
-    #                     table_names=["phot", "emlines"],
-    #                 )
-    #             except Exception as e:
-    #                 print(e)
-    #                 pass
+                try:
+                    bagpipes_input_cat = join(
+                        bagpipes_input_cat,
+                        bagpipes_input_emlines_cat,
+                        keys="id_photcat",
+                        join_type="left",
+                        table_names=["phot", "emlines"],
+                    )
+                except Exception as e:
+                    print(e)
+                    pass
 
-    #             total_cat = join(bagpipes_input_cat, pipes_cat, join_type="left")
+                total_cat = join(bagpipes_input_cat, pipes_cat, join_type="left")
 
-    #             for k, v in list(total_cat.meta.items()):
-    #                 total_cat.meta.pop(k)
-    #             total_cat.meta["EXTNAME"] = "SED_FITTING"
-    #             total_cat.sort("id_photcat")
-    #             total_cat.write(
-    #                 passage_dir
-    #                 / field
-    #                 / f"{field}_full_{fit_ver}_cosmos{cat_ver}.fits",
-    #                 overwrite=True,
-    #             )
+                for k, v in list(total_cat.meta.items()):
+                    total_cat.meta.pop(k)
+                total_cat.meta["EXTNAME"] = "SED_FITTING"
+                total_cat.sort("id_photcat")
+                total_cat.write(
+                    passage_dir / field / f"{field}_full_{fit_ver}.fits",
+                    overwrite=True,
+                )
 
-    #         with zipfile.ZipFile(summary_plot_archive, "a") as myzip:
-    #             zip_path = zipfile.Path(myzip)
-    #             for f in (pipes_dir / "plots" / run_name).glob("*summary.pdf"):
-    #                 if not (zip_path / f.relative_to(pipes_dir / "plots")).exists():
-    #                     myzip.write(f, f.relative_to(pipes_dir / "plots"))
+            with zipfile.ZipFile(summary_plot_archive, "a") as myzip:
+                zip_path = zipfile.Path(myzip)
+                for f in (pipes_dir / "plots" / run_name).glob("*summary.pdf"):
+                    if not (zip_path / f.relative_to(pipes_dir / "plots")).exists():
+                        myzip.write(f, f.relative_to(pipes_dir / "plots"))
 
-    # if rank == 0:
+    if mpi_rank == 0:
 
-    #     cat_path_1 = (
-    #         passage_dir / "cats" / f"SED_fits_{fit_ver}_cosmos{cat_ver}.fits"
-    #     )
-    #     cat_path_2 = upload_dir / f"SED_fits_{fit_ver}_cosmos{cat_ver}.fits"
-    #     if not (cat_path_1.is_file() and cat_path_2.is_file()):
+        cat_path_1 = passage_dir / "cats" / f"SED_fits_{fit_ver}.fits"
+        cat_path_2 = upload_dir / f"SED_fits_{fit_ver}.fits"
+        if not (cat_path_1.is_file() and cat_path_2.is_file()):
 
-    #         linefinding_cat = Table.read(
-    #             passage_dir
-    #             / "cats"
-    #             / config["catalogues"].get(
-    #                 "passage_cat_name", "passage_cosmos_redshift_catalog_v2.dat"
-    #             ),
-    #             format="ascii.tab",
-    #         )
-    #         passage_z_cat = linefinding_cat[
-    #             "id",
-    #             "ra",
-    #             "dec",
-    #             "field",
-    #             "zbest",
-    #             "zbesterr",
-    #             "cosmoswebid",
-    #             "cosmos2020id",
-    #         ]
-    #         passage_z_cat.rename_column("id", "id_huberty")
+            tables = []
+            for field in fields:
+                file = passage_dir / f"{field}" / f"{field}_full_{fit_ver}.fits"
+                try:
+                    _tab = Table.read(file)
+                except:
+                    _tab = Table.read(
+                        file.parent / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"
+                    )
+                _tab["field"] = file.name.split("_")[0]
+                tables.append(_tab)
 
-    #         tables = []
-    #         for field in fields:
-    #             file = (
-    #                 passage_dir
-    #                 / f"{field}"
-    #                 / f"{field}_full_{fit_ver}_cosmos{cat_ver}.fits"
-    #             )
-    #             try:
-    #                 _tab = Table.read(file)
-    #             except:
-    #                 _tab = Table.read(
-    #                     file.parent
-    #                     / f"{field}_bagpipes_input_{fit_ver}_cosmos{cat_ver}_extcorr.fits"
-    #                 )
-    #             _tab["field"] = file.name.split("_")[0]
-    #             tables.append(_tab)
+            full_cat = vstack(tables, join_type="outer")
 
-    #         SED_fits = vstack(tables, join_type="outer")
+            full_cat.sort("id_photcat")
+            full_cat.meta["EXTNAME"] = f"SED_FITTING_{fit_ver}"
+            full_cat.write(cat_path_1, overwrite=True)
+            full_cat.write(cat_path_2, overwrite=True)
 
-    #         full_cat = join(
-    #             passage_z_cat,
-    #             SED_fits,
-    #             keys=["field", "id_huberty", "zbest", "zbesterr"],
-    #             join_type="left",
-    #         )
+            print(f"Finished for {cat_ver=}.")
 
-    #         full_cat.sort("id_huberty")
-    #         full_cat.meta["EXTNAME"] = f"SED_FITTING_{fit_ver}"
-    #         full_cat.write(cat_path_1, overwrite=True)
-    #         full_cat.write(cat_path_2, overwrite=True)
+        full_dir_archive = upload_dir / f"full_dir_archive_{fit_ver}.zip"
 
-    #         print(f"Finished for {cat_ver=}.")
-
-    #     full_dir_archive = (
-    #         upload_dir / f"full_dir_archive_{fit_ver}_cosmos{cat_ver}.zip"
-    #     )
-
-    #     with zipfile.ZipFile(full_dir_archive, "a") as myzip:
-    #         zip_path = zipfile.Path(myzip)
-    #         for f in passage_dir.glob(f"**/*{fit_ver}_cosmos{cat_ver}*"):
-    #             if f.is_dir():
-    #                 for subfiles in f.glob("*"):
-    #                     if not (
-    #                         zip_path / subfiles.relative_to(out_base_dir)
-    #                     ).exists():
-    #                         myzip.write(
-    #                             subfiles, subfiles.relative_to(out_base_dir)
-    #                         )
-    #             if not (zip_path / f.relative_to(out_base_dir)).exists():
-    #                 myzip.write(f, f.relative_to(out_base_dir))
-    #         for f in filt_dir.glob("*"):
-    #             if not (zip_path / f.relative_to(out_base_dir)).exists():
-    #                 myzip.write(f, f.relative_to(out_base_dir))
+        with zipfile.ZipFile(full_dir_archive, "a") as myzip:
+            zip_path = zipfile.Path(myzip)
+            for f in passage_dir.glob(f"**/*{fit_ver}_cosmos{cat_ver}*"):
+                if f.is_dir():
+                    for subfiles in f.glob("*"):
+                        if not (zip_path / subfiles.relative_to(out_base_dir)).exists():
+                            myzip.write(subfiles, subfiles.relative_to(out_base_dir))
+                if not (zip_path / f.relative_to(out_base_dir)).exists():
+                    myzip.write(f, f.relative_to(out_base_dir))
+            for f in filt_dir.glob("*"):
+                if not (zip_path / f.relative_to(out_base_dir)).exists():
+                    myzip.write(f, f.relative_to(out_base_dir))
