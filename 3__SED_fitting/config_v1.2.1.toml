@@ -1,6 +1,6 @@
 # This is an example configuration file, which stores the settings used previously.
 
-title = "PASSAGE in COSMOS SED Fitting"
+title = "PASSAGE HST fields SED fitting"
 
 [files]
 # The base dir, from which all other paths will be resolved. If not specified,
@@ -10,9 +10,6 @@ out_base_dir = "/media/sharedData/data/2026_01_08__PASSAGE"
 # This directory contains all existing phot/spec cats in field-specific
 # subdirectories
 passage_dir = "PASSAGE_data"
-# This contains the reference COSMOS2020/Web catalogues. If already matched,
-# this may not be necessary
-ref_cats_dir = "ref_cats"
 # All transmission curves for the filters in the photometric catalogues
 filt_dir = "transmission_curves"
 # Where to compile the outputs for upload to Box. A subdirectory will be
@@ -22,26 +19,16 @@ upload_dir = "to_upload"
 [general]
 # An incremental version for the output. Semantic versioning recommended.
 fit_ver = "v1.2.1"
-# The reference catalogue versions to use
-cat_versions = ["web", "2020"]
 # The fields to attempt to fit
 fields = [
-  # "Par028",
-  # "Par003",
-  # "Par017",
-  # "Par023",
-  # "Par024",
-  # "Par025",
-  # "Par026",
-  # "Par029",
-  # "Par049",
-  # "Par051",
-  # "Par053",
-  # "Par052",
-  # "Par005",
-  # "Par006",
-  # "Par020",
   "Par682",
+  "Par016",
+  "Par019",
+  "Par021",
+  "Par034",
+  "Par040",
+  "Par042",
+  "Par044",
 ]
 # Include emission line fluxes in the fit
 fit_emlines = true
@@ -52,26 +39,14 @@ emlines_is_grizli = false
 line_names = ["SII", "Ha", "OIII", "Hb", "OII", "NeIII-3867"]
 
 [catalogues]
-# # The maximum separation to use when matching catalogues (arcsec)
-# max_sep = 0.3
-# # COSMOS-Web catalogue name
-# web_cat_name = "COSMOSWeb_mastercatalog_v1.1.fits"
-# # COSMOS-Web photometry HDU name
-# web_phot_hdu = "PHOTOMETRY HOTCOLD AND SE++"
-# # COSMOS2020 catalogue name
-# 2020_cat_name = "COSMOS2020_FARMER_R1_v2.2_p3.fits"
-# # COSMOS2020 photometry HDU name
-# 2020_phot_hdu = "PHASE3CATALOG"
-# PASSAGE redshift catalogue name
-# passage_z_cat_name = "passage_cosmos_redshift_catalog_v2.dat"
-z_cat_name_template = "{field}_output_farhan.tar.gz/{field}_output_farhan/{field}lines_catalog_farhan.dat"
-z_cat_colnames = {id = "id_photcat", zspec = "redshift", zspec_err = "redshift_error"}
+# The template for the redshift catalogue name
+z_cat_name_template = "{field}_output_farhan.zip/{field}_output_farhan/{field}lines_catalog_farhan.dat"
+# Mapping the column names to `id`, `zspec`, and `zspec_err`
+z_cat_colnames = { id = "id_photcat", zspec = "redshift", zspec_err = "redshift_error" }
 # photcat name format
 photcat_name_template = "{field}_photcat*.fits"
 # PASSAGE emission line catalogue name format
-# emline_cat_name_template = "{field}lines_catalog_master.dat"
-# emline_cat_name_template = "{field}_output_kalina.zip/{field}_output_kalina/{field}lines_catalog_master.dat"
-emline_cat_name_template = "{field}_output_farhan.tar.gz/{field}_output_farhan/{field}lines_catalog_farhan.dat"
+emline_cat_name_template = "{field}_output_farhan.zip/{field}_output_farhan/{field}lines_catalog_farhan.dat"
 
 # `fit_instructions` is the TOML-formatted version of the fit instructions (or
 # model components) passed to `bagpipes`. Any lists or arrays here will be

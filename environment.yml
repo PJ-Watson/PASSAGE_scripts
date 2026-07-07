@@ -14,6 +14,8 @@ dependencies:
   # SED fitting
   - dust-extinction
   - dustmaps
+  - pymultinest
+  - multinest
   - pip:
     - grizli[jwst,aws]@git+https://github.com/PJ-Watson/grizli@new_workflow
     - niriss-tools@git+https://github.com/PJ-Watson/niriss-tools
