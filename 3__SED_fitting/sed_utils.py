@@ -81,6 +81,10 @@ generic_name_mapping = {
     "f115wn": "jwst_niriss_f115w",
     "f150wn": "jwst_niriss_f150w",
     "f200wn": "jwst_niriss_f200w",
+    # NIRISS according to passage photcats
+    "f115w": "jwst_niriss_f115w",
+    "f150w": "jwst_niriss_f150w",
+    "f200w": "jwst_niriss_f200w",
     # SVO
     "f475w": "HST_WFC3_UVIS1.F475W",
     "f625w": "HST_WFC3_UVIS1.F625W",
@@ -1136,7 +1140,11 @@ def prepare_catalogues(
         ]
         filter_list = []
 
-        for filt in ["f115wn", "f150wn", "f200wn"]:
+        # grizli appends `n` to the NIRISS filter names to avoid namespace
+        # collisions with the NIRcam filters. This is discarded in the
+        # `passagepipe`-produced photcats, which will lead to problems if
+        # any ancillary photometry is included.
+        for filt in ["f115wn", "f150wn", "f200wn", "f115w", "f150w", "f200w"]:
             if f"{filt}_flux_auto" in passage_matched_phot.colnames:
                 cat_filt = generic_name_mapping[filt]
                 filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
