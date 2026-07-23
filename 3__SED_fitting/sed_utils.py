@@ -270,7 +270,7 @@ def apply_dust_correction(
     return phot_cat
 
 
-def prepare_catalogues(
+def prepare_catalogues_cosmos(
     config: dict,
     passage_dir: Path,
     ref_cats_dir: Path,
@@ -472,6 +472,9 @@ def prepare_catalogues(
             if c.endswith("_flux_auto"):
                 cat_filt = c.removesuffix("_flux_auto") + "n"
                 cat_filt = cosmosweb_name_mapping[cat_filt]
+            elif c.startswith("flux_auto_") and (cat_ver == "web"):
+                cat_filt = c.removeprefix("flux_auto_")
+                cat_filt = cosmosweb_name_mapping[cat_filt]
             elif c.startswith("flux_model_"):
                 cat_filt = c.removeprefix("flux_model_")
                 cat_filt = cosmosweb_name_mapping[cat_filt]
@@ -485,22 +488,30 @@ def prepare_catalogues(
             else:
                 continue
 
+            if str(filt_dir / f"{cat_filt}.dat") in filter_list:
+                continue
+
             filter_list.append(str(filt_dir / f"{cat_filt}.dat"))
 
             phot_cat[f"{cat_filt}_flux"] = passage_matched_phot[c]
             try:
                 phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
-                    f"flux_err-cal_model_{c.removeprefix("flux_model_")}"
+                    f"flux_err_auto_{c.removeprefix("flux_auto_")}"
                 ]
             except:
                 try:
                     phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
-                        f"{c.removesuffix("_flux")}_fluxerr"
+                        f"flux_err-cal_model_{c.removeprefix("flux_model_")}"
                     ]
                 except:
-                    phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
-                        f"{c.removesuffix("_flux_auto")}_fluxerr_auto"
-                    ]
+                    try:
+                        phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
+                            f"{c.removesuffix("_flux")}_fluxerr"
+                        ]
+                    except:
+                        phot_cat[f"{cat_filt}_err"] = passage_matched_phot[
+                            f"{c.removesuffix("_flux_auto")}_fluxerr_auto"
+                        ]
 
         uniq, uniq_ct = np.unique(phot_cat[cosmos_id_name], return_counts=True)
         phot_cat["flux_scale"] = 1.0
