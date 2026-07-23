@@ -59,10 +59,10 @@ Copied from my slides in Bern:
 
 ## v1.3.2
  - The HST follow-up fields and Par682 are now included in this release.
+ - The COSMOS-Web data now uses `flux_auto_` instead of `flux_model_` where available.
  - The SFH prior was changed to the standard Leja+19 continuity prior, rather than the previous "bursty" prior from Tacchella+22c.
  - The youngest age bin was fixed to (0,10) Myr, and the oldest (0.95, 1.0) * age of universe.
  - The prior on metallicity was corrected to be Gaussian rather than uniform.
- - The COSMOS-Web data now uses `flux_auto_` instead of `flux_model_` where available.
 
 ## v1.2.0:
  - This release does not cover the full sample in Huberty+26.

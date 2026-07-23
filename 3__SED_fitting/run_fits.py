@@ -265,12 +265,13 @@ if __name__ == "__main__":
                     _tab = Table.read(
                         file.parent / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"
                     )
-                _tab["field"] = file.name.split("_")[0]
+                _tab.add_column(file.name.split("_")[0], index=0, name="field")
+                # _tab["field"] = file.name.split("_")[0]
                 tables.append(_tab)
 
             full_cat = vstack(tables, join_type="outer")
 
-            full_cat.sort("id_photcat")
+            full_cat.sort(keys=["field", "id_photcat"])
             full_cat.meta["EXTNAME"] = f"SED_FITTING_{fit_ver}"
             full_cat.write(cat_path_1, overwrite=True)
             full_cat.write(cat_path_2, overwrite=True)
