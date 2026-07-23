@@ -5,7 +5,7 @@ A description of the SED fits for the PASSAGE in COSMOS fields.
 Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogues, as the NIRISS fields covered by these catalogues do not fully overlap.
 
 > [!NOTE]
-> The current "best available" version of the SED catalogue is `SED_fits_v1.2.0_best.fits`.
+> The current "best available" version of the SED catalogue is `SED_fits_v1.3.2_best.fits`.
 
 # Data Products
 
@@ -24,13 +24,14 @@ Each release will include fits using both the COSMOS2020 and COSMOS-WEB catalogu
    - NIRISS + COSMOS2020 photometry
    - NIRISS photometry with line fluxes
    - NIRISS photometry only
-- For simplicity, the `"_best"` catalogue will not include fits to galaxies where the only available data is a single NIRISS photometric flux. These have almost no scientific use, but are available in the individual fit catalogues for those who really want them (_caveat utilitor_).
+- For simplicity, the `"_best"` catalogue will not include fits to galaxies where only one photometric band is available. These have almost no scientific use, but are available in the individual fit catalogues for those who really want them (_caveat utilitor_).
 - The provenance of the SED fit results in the `"_best"` catalogue is provided in the `source_cat` column.
 
 ## Code
  - The code used for these SED fits is available at https://github.com/PJ-Watson/PASSAGE_scripts.
  - Following v1.0.2, each release will have a dedicated config file, and can be run using the same script (`run_fits.py`), e.g.:
-   - `mpirun -n 8 python run_fits.py config_v1.2.0.toml`
+   - `mpirun -n 8 python run_fits.py config_v1.3.2.toml`
+ - The COSMOS fields can be fit using `run_fit_cosmos.py`. For versions `<=v1.2.1`, the config files refer only to the COSMOS fields. For more recent versions, these are separated into a parallel config file, with `_cosmos` appended.
  - Additional package requirements include:
    - dustmaps: https://dustmaps.readthedocs.io/en/latest/
      - By default, extinction corrections are performed using the Schlegel, Finkbeiner & Davis dust map.
@@ -55,6 +56,13 @@ Copied from my slides in Bern:
  - v1.2.0 will include emission line fluxes from careful continuum fitting (by KN and FH).
 
 # Versions
+
+## v1.3.2
+ - The HST follow-up fields and Par682 are now included in this release.
+ - The SFH prior was changed to the standard Leja+19 continuity prior, rather than the previous "bursty" prior from Tacchella+22c.
+ - The youngest age bin was fixed to (0,10) Myr, and the oldest (0.95, 1.0) * age of universe.
+ - The prior on metallicity was corrected to be Gaussian rather than uniform.
+ - The COSMOS-Web data now uses `flux_auto_` instead of `flux_model_` where available.
 
 ## v1.2.0:
  - This release does not cover the full sample in Huberty+26.
