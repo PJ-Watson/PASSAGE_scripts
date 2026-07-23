@@ -120,13 +120,9 @@ if __name__ == "__main__":
             dtype=str,
         )
 
-        # bagpipes_input_cat = sed_utils.mask_catalogue(
-        #     config, bagpipes_input_cat, cosmos_id_name
-        # )
-
         if len(bagpipes_input_cat) == 0:
             if mpi_rank == 0:
-                print(f"No objects to fit in field {field} for {cat_ver=}.")
+                print(f"No objects to fit in field {field} for {fit_ver=}.")
             continue
 
         try:
@@ -285,7 +281,7 @@ if __name__ == "__main__":
 
         with zipfile.ZipFile(full_dir_archive, "a") as myzip:
             zip_path = zipfile.Path(myzip)
-            for f in passage_dir.glob(f"**/*{fit_ver}_cosmos{cat_ver}*"):
+            for f in passage_dir.glob(f"**/*{fit_ver}*"):
                 if f.is_dir():
                     for subfiles in f.glob("*"):
                         if not (zip_path / subfiles.relative_to(out_base_dir)).exists():
