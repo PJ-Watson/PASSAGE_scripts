@@ -185,6 +185,7 @@ if __name__ == "__main__":
                     },
                     line_cat=bagpipes_input_emlines_cat,
                     id_colname="id_photcat",
+                    min_flux=1e-20,
                 )
                 bagpipes_input_cat_masked = bagpipes_input_cat_masked[
                     np.isin(
