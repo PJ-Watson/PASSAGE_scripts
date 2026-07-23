@@ -1,0 +1,108 @@
+# This is an example configuration file, which stores the settings used previously.
+
+title = "PASSAGE HST fields SED fitting"
+
+[files]
+# The base dir, from which all other paths will be resolved. If not specified,
+# all other paths must be either absolute paths, or relative to the current
+# working directory.
+out_base_dir = "/media/sharedData/data/2026_01_08__PASSAGE"
+# This directory contains all existing phot/spec cats in field-specific
+# subdirectories
+passage_dir = "PASSAGE_data"
+# All transmission curves for the filters in the photometric catalogues
+filt_dir = "transmission_curves"
+# Where to compile the outputs for upload to Box. A subdirectory will be
+# created here, corresponding to the value of `general.fit_ver`
+upload_dir = "to_upload"
+
+[general]
+# An incremental version for the output. Semantic versioning recommended.
+fit_ver = "v0.2.3"
+# The fields to attempt to fit
+fields = [
+  # "Par682",
+  # "Par016",
+  # "Par019",
+  # "Par021",
+  # "Par034",
+  # "Par040",
+  # "Par042",
+  # "Par044",
+  "Par2744"
+]
+# Include emission line fluxes in the fit
+fit_emlines = false
+# Is the emission line catalogue from linefinding or grizli?
+emlines_is_grizli = true
+# The lines (grizli naming convention) used in the fit. Only considered if
+# `fit_emlines = true`
+line_names = ["SII", "Ha", "OIII", "Hb", "OII", "NeIII-3867"]
+
+[catalogues]
+# # The template for the redshift catalogue name
+# z_cat_name_template = "{field}_output_farhan.zip/{field}_output_farhan/{field}lines_catalog_farhan.dat"
+# # Mapping the column names to `id`, `zspec`, and `zspec_err`
+# z_cat_colnames = { id = "id_photcat", zspec = "redshift", zspec_err = "redshift_error" }
+# # photcat name format
+# photcat_name_template = "{field}_photcat*.fits"
+# # PASSAGE emission line catalogue name format
+# emline_cat_name_template = "{field}_output_farhan.zip/{field}_output_farhan/{field}lines_catalog_farhan.dat"
+# The template for the redshift catalogue name
+z_cat_name_template = "{field}_compiled_grizli_NGDEEP_custom.fits"
+# Mapping the column names to `id`, `zspec`, and `zspec_err`
+z_cat_colnames = { id = "id", zspec = "redshift", zspec_err = "zwidth1" }
+# photcat name format
+photcat_name_template = "{field}_glass-a2744_phot.fits"
+# PASSAGE emission line catalogue name format
+emline_cat_name_template = "{field}_compiled_grizli_NGDEEP_custom.fits"
+
+# `fit_instructions` is the TOML-formatted version of the fit instructions (or
+# model components) passed to `bagpipes`. Any lists or arrays here will be
+# converted back to Python tuples before running bagpipes.
+
+[fit_instructions]
+redshift = [1, 1]
+t_bc = 0.02
+
+[fit_instructions.dust]
+type = "Calzetti"
+Av = [0, 3]
+eta = 2
+
+[fit_instructions.nebular]
+logU = [-3.5, -1.0]
+
+[fit_instructions.contvz]
+massformed = [3, 12]
+metallicity = [0, 3]
+metallicity_prior = "Gaussian"
+metallicity_prior_mu = 1
+metallicity_prior_sigma = 0.5
+bin_edges_low = [0, 30]
+bin_edges_high = [-500, 0]
+n_bins = 7
+dsfr1 = [-10, 10]
+dsfr1_prior = "student_t"
+dsfr1_prior_scale = 1.0
+dsfr1_prior_df = 2
+dsfr2 = [-10, 10]
+dsfr2_prior = "student_t"
+dsfr2_prior_scale = 1.0
+dsfr2_prior_df = 2
+dsfr3 = [-10, 10]
+dsfr3_prior = "student_t"
+dsfr3_prior_scale = 1.0
+dsfr3_prior_df = 2
+dsfr4 = [-10, 10]
+dsfr4_prior = "student_t"
+dsfr4_prior_scale = 1.0
+dsfr4_prior_df = 2
+dsfr5 = [-10, 10]
+dsfr5_prior = "student_t"
+dsfr5_prior_scale = 1.0
+dsfr5_prior_df = 2
+dsfr6 = [-10, 10]
+dsfr6_prior = "student_t"
+dsfr6_prior_scale = 1.0
+dsfr6_prior_df = 2
