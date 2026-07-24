@@ -86,6 +86,8 @@ if __name__ == "__main__":
 
     for field in fields:
 
+        os.chdir(passage_dir)
+
         if mpi_rank == 0:
             pipes_dir.mkdir(exist_ok=True, parents=True)
             try:
@@ -109,8 +111,6 @@ if __name__ == "__main__":
 
         if not prepared:
             continue
-
-        os.chdir(pipes_dir.parent)
 
         bagpipes_input_cat = Table.read(
             passage_dir / field / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"

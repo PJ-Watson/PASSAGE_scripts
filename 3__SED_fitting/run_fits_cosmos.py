@@ -98,6 +98,8 @@ if __name__ == "__main__":
 
         for field in fields:
 
+            os.chdir(passage_dir)
+
             if mpi_rank == 0:
                 try:
                     sed_utils.prepare_catalogues_cosmos(
@@ -124,7 +126,6 @@ if __name__ == "__main__":
 
             pipes_dir = passage_dir / "pipes"
             pipes_dir.mkdir(exist_ok=True, parents=True)
-            os.chdir(pipes_dir.parent)
 
             if MPI_avail:
                 comm.Barrier()
