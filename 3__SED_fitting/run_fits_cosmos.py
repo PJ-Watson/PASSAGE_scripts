@@ -29,14 +29,6 @@ except ImportError:
 
 print(f"MPI: {mpi_rank=}, {mpi_size=}")
 
-import matplotlib.pyplot as plt
-
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-    }
-)
-
 import warnings
 
 # Silence common warnings
@@ -80,6 +72,14 @@ if __name__ == "__main__":
         out_base_dir / config["files"].get("upload_dir", "to_upload") / f"{fit_ver}"
     )
     upload_dir.mkdir(exist_ok=True, parents=True)
+
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "text.usetex": config["general"].get("usetex", True),
+        }
+    )
 
     # Since TOML cannot include tuples, but bagpipes expects priors to be
     # tuple type, this is a roundabout way of finding a solution.
