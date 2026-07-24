@@ -12,17 +12,22 @@ import sed_utils
 from astropy.table import Table, hstack, join, vstack
 
 # detect if run through mpiexec/mpirun
+MPI_avail = False
 try:
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    mpi_rank = comm.Get_rank()
+    mpi_size = comm.Get_size()
+
+    MPI_avail = True
 
 except ImportError:
     print("Could not import MPI")
-    rank = 0
-    size = 1
+    mpi_rank = 0
+    mpi_size = 1
+
+print(f"MPI: {mpi_rank=}, {mpi_size=}")
 
 import matplotlib.pyplot as plt
 
@@ -93,7 +98,7 @@ if __name__ == "__main__":
 
         for field in fields:
 
-            if rank == 0:
+            if mpi_rank == 0:
                 try:
                     sed_utils.prepare_catalogues_cosmos(
                         config,
@@ -111,8 +116,8 @@ if __name__ == "__main__":
                     prepared = False
             else:
                 prepared = None
-
-            prepared = comm.bcast(prepared, root=0)
+            if MPI_avail:
+                prepared = comm.bcast(prepared, root=0)
 
             if not prepared:
                 continue
@@ -121,7 +126,8 @@ if __name__ == "__main__":
             pipes_dir.mkdir(exist_ok=True, parents=True)
             os.chdir(pipes_dir.parent)
 
-            comm.Barrier()
+            if MPI_avail:
+                comm.Barrier()
 
             bagpipes_input_cat = Table.read(
                 passage_dir
@@ -140,7 +146,7 @@ if __name__ == "__main__":
             )
 
             if len(bagpipes_input_cat_masked) == 0:
-                if rank == 0:
+                if mpi_rank == 0:
                     print(f"No objects to fit in field {field} for {cat_ver=}.")
                 continue
 
@@ -229,9 +235,10 @@ if __name__ == "__main__":
             )
             cat_fit.fit(n_live=400, verbose=True, mpi_serial=True, track_backlog=True)
 
-            comm.Barrier()
+            if MPI_avail:
+                comm.Barrier()
 
-            if rank == 0:
+            if mpi_rank == 0:
 
                 if not (
                     passage_dir / field / f"{field}_full_{fit_ver}_cosmos{cat_ver}.fits"
@@ -276,7 +283,7 @@ if __name__ == "__main__":
                         if not (zip_path / f.relative_to(pipes_dir / "plots")).exists():
                             myzip.write(f, f.relative_to(pipes_dir / "plots"))
 
-        if rank == 0:
+        if mpi_rank == 0:
 
             cat_path_1 = (
                 passage_dir / "cats" / f"SED_fits_{fit_ver}_cosmos{cat_ver}.fits"
