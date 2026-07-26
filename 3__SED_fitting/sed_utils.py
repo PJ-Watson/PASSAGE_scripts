@@ -561,34 +561,50 @@ def prepare_catalogues_cosmos(
         try:
             bagpipes_emlines_cat = Table.read(bagpipes_emlines_path)
         except:
+            try:
+                extcorr_cat = Table.read(extcorr_path)
 
-            extcorr_cat = Table.read(extcorr_path)
-
-            reformat_kwargs = dict(
-                keep_ids=np.asarray(extcorr_cat["id_photcat"]),
-                out_name=f"{field}_bagpipes_input_emlines_{fit_ver}_cosmos{cat_ver}.fits",
-                out_dir=passage_dir / field,
-                line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
-            )
-            if config["general"].get("emlines_is_grizli", True):
-                print("Looking for grizli speccat")
-                reformat_grizli_speccat(
-                    passage_dir
-                    / field
-                    / config["catalogues"]
-                    .get("emline_cat_name_template", "{field}_speccat.fits")
-                    .format(field=field),
-                    **reformat_kwargs,
+                reformat_kwargs = dict(
+                    keep_ids=np.asarray(extcorr_cat["id_photcat"]),
+                    out_name=f"{field}_bagpipes_input_emlines_{fit_ver}_cosmos{cat_ver}.fits",
+                    out_dir=passage_dir / field,
+                    line_names=config["general"].get("line_names", DEFAULT_FIT_LINES),
                 )
-            else:
-                print("Looking for linefinding speccat")
-                reformat_lines_list(
+                if config["general"].get("emlines_is_grizli", True):
+                    print("Looking for grizli speccat")
+                    reformat_grizli_speccat(
+                        passage_dir
+                        / field
+                        / config["catalogues"]
+                        .get("emline_cat_name_template", "{field}_speccat.fits")
+                        .format(field=field),
+                        **reformat_kwargs,
+                    )
+                else:
+                    print("Looking for linefinding speccat")
+                    reformat_lines_list(
+                        passage_dir
+                        / field
+                        / config["catalogues"]
+                        .get(
+                            "emline_cat_name_template", "{field}lines_catalog_recon.dat"
+                        )
+                        .format(field=field),
+                        **reformat_kwargs,
+                    )
+            except:
+                print(
+                    f"Could not find or create emission line catalogue for {field}.\n"
+                    "Creating dummy catalogue."
+                )
+                names = ["id_photcat"]
+                for l in config["general"].get("line_names", DEFAULT_FIT_LINES):
+                    names.extend([f"flux_{l}", f"err_{l}"])
+                tab = Table(names=names, dtype=[str] + [float] * (len(names) - 1))
+                tab.write(
                     passage_dir
                     / field
-                    / config["catalogues"]
-                    .get("emline_cat_name_template", "{field}lines_catalog_recon.dat")
-                    .format(field=field),
-                    **reformat_kwargs,
+                    / f"{field}_bagpipes_input_emlines_{fit_ver}_cosmos{cat_ver}.fits"
                 )
 
 

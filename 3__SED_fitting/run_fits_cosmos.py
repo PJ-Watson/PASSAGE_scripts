@@ -194,12 +194,6 @@ if __name__ == "__main__":
                     id_colname="id_photcat",
                     min_flux=1e-20,
                 )
-                bagpipes_input_cat_masked = bagpipes_input_cat_masked[
-                    np.isin(
-                        bagpipes_input_cat_masked["id_photcat"],
-                        bagpipes_input_emlines_cat["id_photcat"],
-                    )
-                ]
 
             run_name = f"{field}_fit_{fit_ver}_cosmos{cat_ver}"
 
