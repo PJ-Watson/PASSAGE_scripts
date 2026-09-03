@@ -269,8 +269,14 @@ class FilterSet:
 
         for i in range(len(self.filt_list)):
             filt = self.filt_list[i]
-            dlambda = utils.make_bins(self.filt_dict[filt][:, 0])[1]
-            filt_weights = dlambda * self.filt_dict[filt][:, 1]
+            midpoints = self.filt_dict[filt][:, 0]
+            bin_widths = np.zeros_like(midpoints)
+            bin_lhs = np.zeros_like(midpoints)
+            bin_lhs[0] = midpoints[0] - (midpoints[1] - midpoints[0]) / 2
+            bin_widths[-1] = midpoints[-1] - midpoints[-2]
+            bin_lhs[1:] = (midpoints[1:] + midpoints[:-1]) / 2
+            bin_widths[:-1] = bin_lhs[1:] - bin_lhs[:-1]
+            filt_weights = bin_widths * self.filt_dict[filt][:, 1]
             self.eff_wavs[i] = np.sqrt(
                 np.sum(filt_weights * self.filt_dict[filt][:, 0])
                 / np.sum(filt_weights / self.filt_dict[filt][:, 0])
