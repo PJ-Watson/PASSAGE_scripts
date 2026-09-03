@@ -5,6 +5,10 @@ cigale_name_mapping = {
     "jwst.niriss.F115WN": "jwst_niriss_f115w",
     "jwst.niriss.F150WN": "jwst_niriss_f150w",
     "jwst.niriss.F200WN": "jwst_niriss_f200w",
+    # HST follow-up
+    "hst.wfc3.uvis1.F475W": "HST_WFC3_UVIS1.F475W",
+    "hst.wfc3.uvis1.F625W": "HST_WFC3_UVIS1.F625W",
+    "hst.acs.wfc.F814W": "HST_ACS_WFC.F814W",
     # COSMOS-Web
     "jwst.nircam.F115W": "jwst_nircam_f115w",
     "jwst.nircam.F150W": "jwst_nircam_f150w",
