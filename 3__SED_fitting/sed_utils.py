@@ -613,8 +613,11 @@ def prepare_catalogues_cosmos(
     try:
         extcorr_cat = Table.read(extcorr_path)
     except:
-        extcorr_cat = apply_dust_correction(phot_cat, filter_list)
-        extcorr_cat.write(extcorr_path)
+        if config["general"].get("extinction_correction", True):
+            extcorr_cat = apply_dust_correction(phot_cat, filter_list)
+            extcorr_cat.write(extcorr_path)
+        else:
+            phot_cat.write(extcorr_path)
 
     if config["general"].get("fit_emlines", False):
         bagpipes_emlines_path = (
@@ -1257,22 +1260,6 @@ def prepare_catalogues(
                     f"{filt}_fluxerr_iso_corr"
                 ]
 
-        # uniq, uniq_ct = np.unique(phot_cat[cosmos_id_name], return_counts=True)
-        # phot_cat["flux_scale"] = 1.0
-        # for dup_id in uniq[uniq_ct > 1]:
-        #     if dup_id == -99:
-        #         continue
-        #     print(f"Duplicate COSMOS ID : {dup_id}")
-        #     total_flux = np.nansum(
-        #         phot_cat[phot_cat[cosmos_id_name] == dup_id]["flux_auto"]
-        #     )
-        #     for idx in np.argwhere(phot_cat[cosmos_id_name] == dup_id):
-        #         flux_scale = phot_cat["flux_auto"][idx] / total_flux
-        #         for c in phot_cat.colnames[7:]:
-        #             if ("wn_" not in c) and (("_flux" in c) or ("_err" in c)):
-        #                 phot_cat[c][idx] *= flux_scale
-        #         phot_cat["flux_scale"][idx] = flux_scale
-
         phot_cat.write(passage_dir / field / f"{field}_bagpipes_input_{fit_ver}.fits")
 
         np.savetxt(
@@ -1287,8 +1274,11 @@ def prepare_catalogues(
     try:
         extcorr_cat = Table.read(extcorr_path)
     except:
-        extcorr_cat = apply_dust_correction(phot_cat, filter_list)
-        extcorr_cat.write(extcorr_path)
+        if config["general"].get("extinction_correction", True):
+            extcorr_cat = apply_dust_correction(phot_cat, filter_list)
+            extcorr_cat.write(extcorr_path)
+        else:
+            phot_cat.write(extcorr_path)
 
     if config["general"].get("fit_emlines", False):
         bagpipes_emlines_path = (
