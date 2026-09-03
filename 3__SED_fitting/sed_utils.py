@@ -2,9 +2,9 @@
 
 cigale_name_mapping = {
     # NIRISS
-    "jwst.niriss.F115WN": "jwst_niriss_f115w",
-    "jwst.niriss.F150WN": "jwst_niriss_f150w",
-    "jwst.niriss.F200WN": "jwst_niriss_f200w",
+    "jwst.niriss.F115W": "jwst_niriss_f115w",
+    "jwst.niriss.F150W": "jwst_niriss_f150w",
+    "jwst.niriss.F200W": "jwst_niriss_f200w",
     # HST follow-up
     "hst.wfc3.uvis1.F475W": "HST_WFC3_UVIS1.F475W",
     "hst.wfc3.uvis1.F625W": "HST_WFC3_UVIS1.F625W",
@@ -220,13 +220,12 @@ class FilterSet:
     """
     Class for loading and manipulating sets of filter curves.
 
-    Originally part of `bagpipes.filters.filter_set`, this is a cut-down
-    version to minimise dependencies and only calculates the effective
-    wavelength of each filter.
+    Very loosely based on `bagpipes.filters.filter_set`, this is a
+    minimal version to reduce dependencies, and only calculates the
+    effective wavelength of each filter.
 
     Parameters
     ----------
-
     filt_list : list
         List of strings containing paths from the working directory to
         files where filter curves are stored. The filter curve files
@@ -263,23 +262,23 @@ class FilterSet:
                 self.filt_dict[filt] = self.filt_dict[filt][:-1, :]
 
     def _calculate_effective_wavelengths(self):
-        """Calculates effective wavelengths for each filter curve."""
+        """
+        Calculates effective wavelengths for each filter curve.
+
+        The implementation is copied over from pcigale-filters.
+        """
 
         self.eff_wavs = np.zeros(len(self.filt_list))
 
         for i in range(len(self.filt_list)):
             filt = self.filt_list[i]
-            midpoints = self.filt_dict[filt][:, 0]
-            bin_widths = np.zeros_like(midpoints)
-            bin_lhs = np.zeros_like(midpoints)
-            bin_lhs[0] = midpoints[0] - (midpoints[1] - midpoints[0]) / 2
-            bin_widths[-1] = midpoints[-1] - midpoints[-2]
-            bin_lhs[1:] = (midpoints[1:] + midpoints[:-1]) / 2
-            bin_widths[:-1] = bin_lhs[1:] - bin_lhs[:-1]
-            filt_weights = bin_widths * self.filt_dict[filt][:, 1]
+
+            tr = self.filt_dict[filt][:, 1].copy()
+            wl = self.filt_dict[filt][:, 0].copy()
+            tr *= wl
+
             self.eff_wavs[i] = np.sqrt(
-                np.sum(filt_weights * self.filt_dict[filt][:, 0])
-                / np.sum(filt_weights / self.filt_dict[filt][:, 0])
+                np.trapezoid(tr, wl) / np.trapezoid(tr / wl**2, wl)
             )
 
 
