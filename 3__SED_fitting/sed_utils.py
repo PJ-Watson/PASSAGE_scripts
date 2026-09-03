@@ -216,6 +216,67 @@ from astropy.table import Table, hstack, join, vstack
 from numpy.typing import ArrayLike
 
 
+class FilterSet:
+    """
+    Class for loading and manipulating sets of filter curves.
+
+    Originally part of `bagpipes.filters.filter_set`, this is a cut-down
+    version to minimise dependencies and only calculates the effective
+    wavelength of each filter.
+
+    Parameters
+    ----------
+
+    filt_list : list
+        List of strings containing paths from the working directory to
+        files where filter curves are stored. The filter curve files
+        should contain an array of wavelengths in Angstroms followed by
+        a column of relative transmission values.
+    """
+
+    def __init__(self, filt_list):
+
+        self.filt_list = filt_list
+        self.wavelengths = None
+        self._load_filter_curves()
+        self._calculate_effective_wavelengths()
+
+    def _load_filter_curves(self):
+        """Loads filter files for the specified filt_list and truncates
+        any zeros from either of their edges."""
+
+        self.filt_dict = {}
+
+        for filt in self.filt_list:
+            try:
+                self.filt_dict[filt] = np.loadtxt(filt, usecols=(0, 1))
+
+            except IOError:
+                self.filt_dict[filt] = np.loadtxt(
+                    utils.install_dir + "/" + filt, usecols=(0, 1)
+                )
+
+            while self.filt_dict[filt][0, 1] == 0.0:
+                self.filt_dict[filt] = self.filt_dict[filt][1:, :]
+
+            while self.filt_dict[filt][-1, 1] == 0.0:
+                self.filt_dict[filt] = self.filt_dict[filt][:-1, :]
+
+    def _calculate_effective_wavelengths(self):
+        """Calculates effective wavelengths for each filter curve."""
+
+        self.eff_wavs = np.zeros(len(self.filt_list))
+
+        for i in range(len(self.filt_list)):
+            filt = self.filt_list[i]
+            dlambda = utils.make_bins(self.filt_dict[filt][:, 0])[1]
+            filt_weights = dlambda * self.filt_dict[filt][:, 1]
+            self.eff_wavs[i] = np.sqrt(
+                np.sum(filt_weights * self.filt_dict[filt][:, 0])
+                / np.sum(filt_weights / self.filt_dict[filt][:, 0])
+            )
+
+
 def apply_dust_correction(
     phot_cat: Table,
     filter_list: ArrayLike,
@@ -245,7 +306,6 @@ def apply_dust_correction(
     """
 
     from astropy.coordinates import SkyCoord
-    from bagpipes.filters import filter_set
     from dustmaps.sfd import SFDQuery
 
     dust_map = SFDQuery()
@@ -261,7 +321,7 @@ def apply_dust_correction(
     )
     ebv = dust_map(coords)
 
-    filts = filter_set(filter_list)
+    filts = FilterSet(filter_list)
 
     for f_name, f_lam in zip(filter_list, filts.eff_wavs):
         phot_cat[f"{Path(f_name).stem}_flux"] /= ext.extinguish(
