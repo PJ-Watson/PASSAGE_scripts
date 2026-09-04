@@ -48,6 +48,8 @@ parser.add_argument(
     type=str,
     metavar="config_path",
     help="The path of the configuration file used to setup the fits.",
+    nargs="?",
+    default="/media/sharedData/python/py3.14_cigale/code/PASSAGE_scripts/3__SED_fitting/config_files/config_v0.5.0-cigale.toml",
 )
 
 if __name__ == "__main__":
@@ -88,58 +90,69 @@ if __name__ == "__main__":
         eff_wavs = np.sqrt(np.trapezoid(tr, wl) / np.trapezoid(tr / wl**2, wl))
         print(eff_wavs)
 
-    for filt in ["F115W", "F150W", "F200W"]:
+    # for filt in ["F115W", "F150W", "F200W"]:
 
-        in_flight_filt = Table.read(
-            f"~/Downloads/niriss_filter_tarball/DATA/NIRISS_{filt}.txt", format="ascii"
-        )
-        # in_flight_filt.pprint()
-
-        # in_flight_filt["Wavelength"]*=10000
-        # in_flight_filt["Wavelength"].format = "{:.1f}"
-
-        # in_flight_filt["Wavelength","FilterTrans"].pprint_all()
-        plt.plot(in_flight_filt["Wavelength"] * 1e4, in_flight_filt["FilterTrans"])
-        plt.plot(in_flight_filt["Wavelength"] * 1e4, in_flight_filt["PCE"])
-        plt.plot(
-            in_flight_filt["Wavelength"] * 1e4,
-            in_flight_filt["PCE"] * in_flight_filt["FilterTrans"],
-        )
-        calc_eff_wav(in_flight_filt["Wavelength"] * 1e4, in_flight_filt["PCE"])
-        calc_eff_wav(
-            in_flight_filt["Wavelength"] * 1e4,
-            in_flight_filt["PCE"] * in_flight_filt["FilterTrans"],
-        )
-
-        # svo = Table.read(f"~/Documents/JWST_NIRISS.{filt}.dat", format="ascii")
-        # # svo.pprint()
-        # plt.plot(svo["col1"], svo["col2"])
-
-        # calc_eff_wav(svo["col1"], svo["col2"])
-
-        current = Table.read(
-            f"/media/sharedData/data/2026_01_08__PASSAGE/transmission_curves/jwst_niriss_{filt.lower()}.dat",
-            format="ascii",
-        )
-        plt.plot(current["col1"], current["col2"])
-        calc_eff_wav(current["col1"], current["col2"])
-
-    # for file in Path(f"/home/watsonp/Downloads/niriss_filter_tarball/DATA").glob(
-    #     "NIRISS*"
-    # ):
-    #     print(file)
-    #     if not np.isin(
-    #         file.stem.split("_")[-1],
-    #         # ["F115W", "F150W", "F200W", "F090W"],
-    #         ["F115W", "F277W",],
-    #     ):
-    #         continue
-    #     in_flight_filt = Table.read(file, format="ascii")
-
-    #     plt.plot(
-    #         in_flight_filt["Wavelength"],
-    #         in_flight_filt["PCE"] / in_flight_filt["FilterTrans"],
+    #     in_flight_filt = Table.read(
+    #         f"~/Downloads/niriss_filter_tarball/DATA/NIRISS_{filt}.txt", format="ascii"
     #     )
+    #     # in_flight_filt.pprint()
+
+    #     # in_flight_filt["Wavelength"]*=10000
+    #     # in_flight_filt["Wavelength"].format = "{:.1f}"
+
+    #     # in_flight_filt["Wavelength","FilterTrans"].pprint_all()
+    #     plt.plot(in_flight_filt["Wavelength"] * 1e4, in_flight_filt["FilterTrans"])
+    #     plt.plot(in_flight_filt["Wavelength"] * 1e4, in_flight_filt["PCE"])
+    #     plt.plot(
+    #         in_flight_filt["Wavelength"] * 1e4,
+    #         in_flight_filt["PCE"] * in_flight_filt["FilterTrans"],
+    #     )
+    #     calc_eff_wav(in_flight_filt["Wavelength"] * 1e4, in_flight_filt["PCE"])
+    #     calc_eff_wav(
+    #         in_flight_filt["Wavelength"] * 1e4,
+    #         in_flight_filt["PCE"] * in_flight_filt["FilterTrans"],
+    #     )
+
+    #     # svo = Table.read(f"~/Documents/JWST_NIRISS.{filt}.dat", format="ascii")
+    #     # # svo.pprint()
+    #     # plt.plot(svo["col1"], svo["col2"])
+
+    #     # calc_eff_wav(svo["col1"], svo["col2"])
+
+    #     current = Table.read(
+    #         f"/media/sharedData/data/2026_01_08__PASSAGE/transmission_curves/jwst_niriss_{filt.lower()}.dat",
+    #         format="ascii",
+    #     )
+    #     plt.plot(current["col1"], current["col2"])
+    #     calc_eff_wav(current["col1"], current["col2"])
+
+    for file in Path(f"/home/watsonp/Downloads/niriss_filter_tarball/DATA").glob(
+        "NIRISS*"
+    ):
+        filt_name = file.stem.split("_")[-1]
+
+        in_flight_filt = Table.read(file, format="ascii")
+
+        in_flight_filt["Wavelength"] *= 10000
+        in_flight_filt["Wavelength"].format = "{:.1f}"
+        in_flight_filt.meta["comments"] = [
+            f"jwst.niriss.{filt_name}",
+            "photon",
+            "In-flight PCE taken from "
+            "https://jwst-docs.stsci.edu/jwst-near-infrared-imager-and-slitless-spectrograph/niriss-instrumentation/niriss-filters",
+        ]
+
+        in_flight_filt["Wavelength", "PCE"].write(
+            f"jwst_niriss_{filt_name.lower()}.dat",
+            format="ascii.no_header",
+            overwrite=True,
+        )
+        # plt.plot(
+        #     in_flight_filt["Wavelength"],
+        #     in_flight_filt["PCE"] / in_flight_filt["FilterTrans"],
+        # )
+
+        # plt.plot(in_flight_filt["Wavelength"], in_flight_filt["PCE"])
 
     plt.show()
     exit()
