@@ -1356,9 +1356,11 @@ def reformat_pipes_cat_to_cigale(
 
     import pcigale_filters
 
-    cigale_path = passage_dir / field / f"{field}_cigales_input_{fit_ver}_extcorr.fits"
+    cigale_cat_path = (
+        passage_dir / field / f"{field}_cigale_input_{fit_ver}_extcorr.fits"
+    )
 
-    if not cigale_path.is_file():
+    if not cigale_cat_path.is_file():
 
         pipes_phot_path = (
             passage_dir / field / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"
@@ -1396,6 +1398,39 @@ def reformat_pipes_cat_to_cigale(
 
         # cigale_cat.pprint()
 
-        # cigale_cat.write(
-        #     passage_dir / field / f"{field}_cigale_input_{fit_ver}_extcorr.fits"
-        # )
+        cigale_cat.write(cigale_cat_path)
+
+    # import pcigale
+
+    from pcigale.session.configuration import Configuration
+
+    # Initialise the .ini/.ini.spec files
+    cigale_conf_path = passage_dir / field / f"{field}_cigale_conf_{fit_ver}.ini"
+    cigale_conf = Configuration(cigale_conf_path)
+    cigale_conf.create_blank_conf()
+
+    cigale_conf.config["data_file"] = cigale_cat_path
+
+    cigale_conf.config["analysis_method"] = "pdf_analysis"
+
+    for key in config["fitting"]["cigale"]["sed_modules_params"].keys():
+        cigale_conf.config["sed_modules"].append(key)
+
+    import pprint
+
+    pprint.pprint(cigale_conf.config)
+
+    cigale_conf.config.write()
+    cigale_conf.generate_conf()
+
+    if config["fitting"]["cigale"].get("properties") is not None:
+        cigale_conf.config["properties"].extend(
+            config["fitting"]["cigale"].get("properties")
+        )
+
+    """
+    Take minimal info from existing config.toml
+    (eg keys)
+    Pass these through to pcigale genconf
+    Repopulate other keys based on toml
+    """

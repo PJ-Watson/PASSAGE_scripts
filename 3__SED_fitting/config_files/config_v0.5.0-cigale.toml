@@ -106,3 +106,18 @@ dsfr6 = [-10, 10]
 dsfr6_prior = "student_t"
 dsfr6_prior_scale = 0.3
 dsfr6_prior_df = 2
+
+
+[fitting.cigale.sed_modules_params.sfhdelayed]
+tau_main = [500.0, 1000.0, 2000.0, 4000.0]
+age_main = [500, 1000, 2000, 4000, 8000]
+
+[fitting.cigale.sed_modules_params.bc03]
+metallicity = [0.0004, 0.008, 0.02]
+
+[fitting.cigale.sed_modules_params.nebular]
+
+[fitting.cigale.sed_modules_params.dustatt_modified_starburst]
+E_BV_lines = [0.0, 0.1, 0.3, 0.5, 1.0]
+
+[fitting.cigale.sed_modules_params.redshifting]
