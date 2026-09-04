@@ -339,7 +339,7 @@ def apply_dust_correction(
     return phot_cat
 
 
-def prepare_catalogues_cosmos(
+def prepare_pipes_catalogues_cosmos(
     config: dict,
     passage_dir: Path,
     ref_cats_dir: Path,
@@ -1108,7 +1108,7 @@ def correct_pipes_params(
     return current_dict
 
 
-def prepare_catalogues(
+def prepare_pipes_catalogues(
     config: dict,
     passage_dir: Path,
     filt_dir: Path,
@@ -1321,3 +1321,81 @@ def prepare_catalogues(
                     .format(field=field),
                     **reformat_kwargs,
                 )
+
+
+def reformat_pipes_cat_to_cigale(
+    config: dict,
+    passage_dir: Path,
+    filt_dir: Path,
+    fit_ver: str = "v1.3.2",
+    field: str = "Par682",
+) -> Path:
+    """
+    Reformat the bagpipes catalogue to meet CIGALE expectations.
+
+    Also checks that all photometric filters are present in the CIGALE database.
+
+    Parameters
+    ----------
+    config : dict
+        The dictionary storing the configuration used for this iteration
+        of SED fitting.
+    passage_dir : Path
+        The directory containing all existing phot/spec cats in
+        field-specific subdirectories.
+    filt_dir : Path
+        The directory storing the transmission curves for the filters in
+        the photometric catalogues.
+    fit_ver : str, optional
+        The string identifying the semantic version of the fit, by default
+        `"v1.3.2"`.
+    field : str, optional
+        The string identifying the PASSAGE field to fit, by default
+        `"Par682"`.
+    """
+
+    import pcigale_filters
+
+    cigale_path = passage_dir / field / f"{field}_cigales_input_{fit_ver}_extcorr.fits"
+
+    if not cigale_path.is_file():
+
+        pipes_phot_path = (
+            passage_dir / field / f"{field}_bagpipes_input_{fit_ver}_extcorr.fits"
+        )
+
+        pipes_phot_cat = Table.read(pipes_phot_path)
+
+        filter_list = np.loadtxt(
+            passage_dir / field / f"{field}_filter_list_{fit_ver}.txt",
+            dtype=str,
+        )
+
+        cigale_cat = Table()
+        cigale_cat["id"] = pipes_phot_cat["id_photcat"]
+        cigale_cat["redshift"] = pipes_phot_cat["zspec"]
+
+        for filt in filter_list:
+            pipes_name = Path(filt).stem
+            cigale_name = pipes_to_cigale[pipes_name]
+
+            if not check_cigale_filter(cigale_name):
+                pcigale_filters.add_filters([filt])
+
+            cigale_cat[cigale_name] = pipes_phot_cat[f"{pipes_name}_flux"]
+            cigale_cat[f"{cigale_name}_err"] = pipes_phot_cat[f"{pipes_name}_err"]
+
+            # Ensure that fluxes are in mJy (assumed uJy if no units present)
+            for ext in ["", "_err"]:
+                if hasattr(cigale_cat[f"{cigale_name}{ext}"], "unit"):
+                    cigale_cat[f"{cigale_name}{ext}"] = cigale_cat[
+                        f"{cigale_name}{ext}"
+                    ].to(u.mJy)
+                else:
+                    cigale_cat[f"{cigale_name}{ext}"] /= 1e3
+
+        # cigale_cat.pprint()
+
+        # cigale_cat.write(
+        #     passage_dir / field / f"{field}_cigale_input_{fit_ver}_extcorr.fits"
+        # )
